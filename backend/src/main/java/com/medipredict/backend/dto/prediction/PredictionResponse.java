@@ -4,19 +4,34 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import com.medipredict.backend.dto.ml.MlPredictionApiResponse;
+
 public class PredictionResponse {
 
     private Long id;
+
     private boolean success;
+
     private double monthlyPremium;
+
     private double annualPremium;
+
     private double processingTimeMs;
+
     private String predictionSource;
+
     private boolean fallbackUsed;
+
     private String mlModelVersion;
+
     private Instant createdAt;
+
     private Map<String, Object> features;
+
     private List<PredictionFactor> breakdown;
+
+    // NEW
+    private MlPredictionApiResponse mlResponse;
 
     public Long getId() {
         return id;
@@ -104,5 +119,13 @@ public class PredictionResponse {
 
     public void setBreakdown(List<PredictionFactor> breakdown) {
         this.breakdown = breakdown;
+    }
+
+    public MlPredictionApiResponse getMlResponse() {
+        return mlResponse;
+    }
+
+    public void setMlResponse(MlPredictionApiResponse mlResponse) {
+        this.mlResponse = mlResponse;
     }
 }

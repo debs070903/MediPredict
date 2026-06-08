@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.medipredict.backend.dto.ml.MlPredictionApiResponse;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,18 +63,18 @@ public class PredictionService {
         record.setSmokingStatus(request.getSmokingStatus());
         record.setRegion(request.getRegion());
         record.setChildren(request.getChildren());
-        record.setMonthlyPremium(mlResult.getPrediction());
-        record.setAnnualPremium(mlResult.getPrediction() * 12d);
+        record.setMonthlyPremium(mlResult.getMonthlyPrediction());
+        record.setAnnualPremium(mlResult.getAnnualPrediction());
         record.setProcessingTimeMs(mlResult.getProcessingTimeMs() != null ? mlResult.getProcessingTimeMs() : 0d);
         record.setPredictionSource(mlResult.getSource());
         record.setFallbackUsed(mlResult.isFallbackUsed());
         record.setMlModelVersion(mlResult.getModelVersion());
         record.setRequestFeaturesJson(toJson(features));
-        record.setResponseJson(toJson(Map.of(
-                "prediction", mlResult.getPrediction(),
-                "source", mlResult.getSource(),
-                "fallbackUsed", mlResult.isFallbackUsed()
-        )));
+        record.setResponseJson(
+                toJson(
+                        mlResult.getRawMlResponse()
+                )
+        );
 
         predictionRepository.save(record);
 
@@ -91,6 +92,9 @@ public class PredictionService {
         response.setBreakdown(mlResult.getBreakdown().stream()
                 .map(factor -> new PredictionFactor(factor.getName(), factor.getValue()))
                 .toList());
+        response.setMlResponse(
+                mlResult.getRawMlResponse()
+        );
         return response;
     }
 
@@ -156,6 +160,33 @@ public class PredictionService {
                 "region", record.getRegion(),
                 "children", record.getChildren()
         ));
+        try {
+
+            MlPredictionApiResponse mlResponse =
+                    objectMapper.readValue(
+                            record.getResponseJson(),
+                            MlPredictionApiResponse.class
+                    );
+
+            response.setMlResponse(mlResponse);
+
+            if (mlResponse.getBreakdown() != null) {
+
+                response.setBreakdown(
+                        mlResponse.getBreakdown().stream()
+                                .map(factor ->
+                                        new PredictionFactor(
+                                                factor.getName(),
+                                                factor.getValue()
+                                        )
+                                )
+                                .toList()
+                );
+            }
+
+        } catch (Exception ignored) {
+
+        }
         return response;
     }
 

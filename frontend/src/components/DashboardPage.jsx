@@ -65,6 +65,7 @@ const DEFAULT_FORM = {
   bmi: "",
   smoking: "",
   region: "",
+  children: "",
 };
 
 const DEFAULT_PROFILE = {
@@ -76,7 +77,14 @@ const DEFAULT_PROFILE = {
   emergencyContact: "",
 };
 
-const COLORS = ["#005BEA", "#0078F0", "#00A8FB", "#00C6FB", "#6BD6FF", "#B3E5FF"];
+const COLORS = [
+  "#005BEA",
+  "#0078F0",
+  "#00A8FB",
+  "#00C6FB",
+  "#6BD6FF",
+  "#B3E5FF",
+];
 
 function calculateBmi(height, weight) {
   const h = Number(height);
@@ -85,7 +93,7 @@ function calculateBmi(height, weight) {
     return "";
   }
 
-  const bmi = w / ((h / 100) ** 2);
+  const bmi = w / (h / 100) ** 2;
   return Number.isFinite(bmi) ? bmi.toFixed(1) : "";
 }
 
@@ -94,12 +102,14 @@ function getInitials(name) {
     return "MP";
   }
 
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "MP";
+  return (
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "MP"
+  );
 }
 
 function buildPieData(breakdown) {
@@ -131,7 +141,12 @@ function buildMonthlyChartData(monthlyTrend) {
   }));
 }
 
-export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }) {
+export function DashboardPage({
+  onNavigate,
+  session,
+  onLogout,
+  onSessionUpdate,
+}) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -179,7 +194,11 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
       } catch (error) {
         setErrorMessage(error.message || "Unable to load dashboard data");
         toast.error(error.message || "Unable to load dashboard data");
-        if (/authorization|session expired|unauthorized/i.test(error.message || "")) {
+        if (
+          /authorization|session expired|unauthorized/i.test(
+            error.message || ""
+          )
+        ) {
           handleSessionExpiry();
           return;
         }
@@ -204,9 +223,31 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
   );
 
   const historyRows = summary?.recentPredictions || [];
-  const pieData = useMemo(() => buildPieData(predictionResult?.breakdown), [predictionResult]);
-  const annualPremium = summary?.latestPrediction?.annualPremium || predictionResult?.annualPremium || 0;
-  const monthlyPremium = predictionResult?.monthlyPremium || summary?.latestPrediction?.monthlyPremium || 0;
+  const pieData = useMemo(
+    () => buildPieData(predictionResult?.breakdown),
+    [predictionResult]
+  );
+  const localContributions =
+    predictionResult?.mlResponse?.interpretability?.localFeatureContributions ||
+    [];
+
+  const globalImportance =
+    predictionResult?.mlResponse?.interpretability?.globalFeatureImportance ||
+    [];
+
+  const modelMetrics =
+    predictionResult?.mlResponse?.interpretability?.modelMetrics;
+
+  const inputCoverage =
+    predictionResult?.mlResponse?.interpretability?.inputCoverage;
+  const annualPremium =
+    summary?.latestPrediction?.annualPremium ||
+    predictionResult?.annualPremium ||
+    0;
+  const monthlyPremium =
+    predictionResult?.monthlyPremium ||
+    summary?.latestPrediction?.monthlyPremium ||
+    0;
   const currentFallback = Boolean(predictionResult?.fallbackUsed);
 
   const sidebarItems = [
@@ -234,7 +275,7 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
         bmi: formData.bmi ? Number(formData.bmi) : null,
         smokingStatus: formData.smoking,
         region: formData.region,
-        children: 0,
+        children: formData.children ? Number(formData.children) : 0,
       };
 
       const result = await api.createPrediction(session.token, payload);
@@ -249,7 +290,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
     } catch (error) {
       setErrorMessage(error.message || "Unable to generate prediction");
       toast.error(error.message || "Unable to generate prediction");
-      if (/authorization|session expired|unauthorized/i.test(error.message || "")) {
+      if (
+        /authorization|session expired|unauthorized/i.test(error.message || "")
+      ) {
         handleSessionExpiry();
       }
     } finally {
@@ -274,7 +317,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
     } catch (error) {
       setErrorMessage(error.message || "Unable to update profile");
       toast.error(error.message || "Unable to update profile");
-      if (/authorization|session expired|unauthorized/i.test(error.message || "")) {
+      if (
+        /authorization|session expired|unauthorized/i.test(error.message || "")
+      ) {
         handleSessionExpiry();
       }
     } finally {
@@ -391,9 +436,13 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden md:block text-right">
-                <div className="text-sm font-medium">{session?.user?.email}</div>
+                <div className="text-sm font-medium">
+                  {session?.user?.email}
+                </div>
                 <div className="text-xs text-gray-500">
-                  {summary?.mlServiceHealthy ? "ML service connected" : "ML fallback active"}
+                  {summary?.mlServiceHealthy
+                    ? "ML service connected"
+                    : "ML fallback active"}
                 </div>
               </div>
               <Avatar className="bg-gradient-to-br from-[#005BEA] to-[#00C6FB]">
@@ -433,7 +482,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                       {formatCurrency(monthlyPremium)}
                     </div>
                     <p className="text-sm text-gray-500">
-                      {predictionResult?.predictionSource || summary?.latestPrediction?.predictionSource || "No prediction yet"}
+                      {predictionResult?.predictionSource ||
+                        summary?.latestPrediction?.predictionSource ||
+                        "No prediction yet"}
                     </p>
                   </CardContent>
                 </Card>
@@ -456,26 +507,81 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Monthly Premium Trend</CardTitle>
+                    <CardTitle>Most Recent Cost Breakdown</CardTitle>
+
                     <CardDescription>
-                      Based on your saved prediction history
+                      Detailed contribution of factors to your latest monthly
+                      premium
                     </CardDescription>
                   </CardHeader>
+
                   <CardContent>
-                    {monthlyPremiumData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={monthlyPremiumData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
-                          <YAxis />
-                          <Tooltip formatter={(value) => [formatCurrency(value), "Premium"]} />
-                          <Legend />
-                          <Bar dataKey="premium" fill="#00C6FB" />
-                        </BarChart>
-                      </ResponsiveContainer>
+                    {pieData.length > 0 ? (
+                      <div className="space-y-6">
+                        {/* BREAKDOWN */}
+                        <div className="space-y-5">
+                          {pieData.map((item, index) => {
+                            const percentage =
+                              monthlyPremium > 0
+                                ? (
+                                    (Number(item.value || 0) /
+                                      Number(monthlyPremium || 1)) *
+                                    100
+                                  ).toFixed(1)
+                                : 0;
+
+                            return (
+                              <div key={item.name} className="space-y-2">
+                                {/* LABEL + VALUE */}
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="font-medium text-gray-800">
+                                      {item.name}
+                                    </p>
+
+                                    <p className="text-xs text-gray-500">
+                                      {percentage}% contribution
+                                    </p>
+                                  </div>
+
+                                  <p className="font-semibold text-[#005BEA]">
+                                    {formatCurrency(item.value)}
+                                  </p>
+                                </div>
+
+                                {/* PROGRESS BAR */}
+                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-700"
+                                    style={{
+                                      width: `${Math.min(percentage, 100)}%`,
+                                      background: COLORS[index % COLORS.length],
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* SUMMARY */}
+                        <div className="rounded-xl border bg-[#F5F7FA] p-4">
+                          <p className="font-semibold text-[#005BEA] mb-2">
+                            Premium Summary
+                          </p>
+
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            Your premium is primarily influenced by lifestyle,
+                            BMI, age, and regional healthcare costs. Maintaining
+                            healthier habits can help reduce long-term insurance
+                            premiums.
+                          </p>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-gray-500">
-                        Run your first prediction to see the trend chart here.
+                      <div className="rounded-lg border border-dashed p-10 text-center text-sm text-gray-500">
+                        Generate a premium prediction to view the latest cost
+                        breakdown.
                       </div>
                     )}
                   </CardContent>
@@ -490,21 +596,29 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="rounded-xl bg-gradient-to-br from-[#005BEA]/10 to-[#00C6FB]/10 p-4">
-                      <p className="text-sm text-gray-600 mb-1">Current estimate</p>
+                      <p className="text-sm text-gray-600 mb-1">
+                        Current estimate
+                      </p>
                       <p className="text-3xl font-bold text-[#005BEA]">
                         {formatCurrency(monthlyPremium)}
                       </p>
                       <p className="text-xs text-gray-500 mt-2">
-                        Processing time: {predictionResult?.processingTimeMs || 0} ms
+                        Processing time:{" "}
+                        {predictionResult?.processingTimeMs || 0} ms
                       </p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Sparkles className="h-4 w-4 text-[#005BEA]" />
-                      {currentFallback ? "Fallback estimate generated locally" : "Prediction generated from ML microservice"}
+                      {currentFallback
+                        ? "Fallback estimate generated locally"
+                        : "Prediction generated from ML microservice"}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Clock3 className="h-4 w-4 text-[#005BEA]" />
-                      Model version: {predictionResult?.mlModelVersion || summary?.mlModelVersion || "unknown"}
+                      Model version:{" "}
+                      {predictionResult?.mlModelVersion ||
+                        summary?.mlModelVersion ||
+                        "unknown"}
                     </div>
                   </CardContent>
                 </Card>
@@ -522,7 +636,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                         <TableHead>Date</TableHead>
                         <TableHead>Region</TableHead>
                         <TableHead>Smoking</TableHead>
-                        <TableHead className="text-right">Monthly Premium</TableHead>
+                        <TableHead className="text-right">
+                          Monthly Premium
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -530,7 +646,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                         historyRows.map((row) => (
                           <TableRow key={row.id}>
                             <TableCell>{row.id}</TableCell>
-                            <TableCell>{formatShortDate(row.createdAt)}</TableCell>
+                            <TableCell>
+                              {formatShortDate(row.createdAt)}
+                            </TableCell>
                             <TableCell>{row.region || "-"}</TableCell>
                             <TableCell>{row.smokingStatus || "-"}</TableCell>
                             <TableCell className="text-right">
@@ -540,7 +658,10 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-gray-500">
+                          <TableCell
+                            colSpan={5}
+                            className="text-center text-gray-500"
+                          >
                             No saved predictions yet
                           </TableCell>
                         </TableRow>
@@ -561,7 +682,8 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                     Insurance Premium Estimator
                   </CardTitle>
                   <CardDescription>
-                    Enter your details to get an estimated monthly insurance premium
+                    Enter your details to get an estimated monthly insurance
+                    premium
                   </CardDescription>
                 </CardHeader>
 
@@ -654,7 +776,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="smoker">Smoker</SelectItem>
-                            <SelectItem value="non-smoker">Non-Smoker</SelectItem>
+                            <SelectItem value="non-smoker">
+                              Non-Smoker
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -675,12 +799,38 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                             <SelectItem value="south">South</SelectItem>
                             <SelectItem value="east">East</SelectItem>
                             <SelectItem value="west">West</SelectItem>
-                            <SelectItem value="northwest">North West</SelectItem>
-                            <SelectItem value="northeast">North East</SelectItem>
-                            <SelectItem value="southwest">South West</SelectItem>
-                            <SelectItem value="southeast">South East</SelectItem>
+                            <SelectItem value="northwest">
+                              North West
+                            </SelectItem>
+                            <SelectItem value="northeast">
+                              North East
+                            </SelectItem>
+                            <SelectItem value="southwest">
+                              South West
+                            </SelectItem>
+                            <SelectItem value="southeast">
+                              South East
+                            </SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="children">Dependents / Children</Label>
+
+                        <Input
+                          id="children"
+                          type="number"
+                          min="0"
+                          placeholder="Enter number of dependents"
+                          value={formData.children}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              children: e.target.value,
+                            })
+                          }
+                        />
                       </div>
                     </div>
 
@@ -691,7 +841,9 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                       disabled={isSubmittingPrediction}
                     >
                       <BarChart3 className="mr-2 h-5 w-5" />
-                      {isSubmittingPrediction ? "Generating..." : "Generate Premium Cost"}
+                      {isSubmittingPrediction
+                        ? "Generating..."
+                        : "Generate Premium Cost"}
                     </Button>
                   </form>
                 </CardContent>
@@ -723,66 +875,288 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={pieData}
-                              dataKey="value"
-                              cx="50%"
-                              cy="50%"
-                              outerRadius={120}
-                              label={({ cx, cy, midAngle, innerRadius, outerRadius, name, value }) => {
-                                const RADIAN = Math.PI / 180;
-                                const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
-                                const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    <div className="space-y-10">
+                      {/* TOP SECTION */}
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                        {/* PIE CHART */}
+                        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                          <div className="mb-4">
+                            <h3 className="text-xl font-semibold text-[#005BEA]">
+                              Premium Breakdown
+                            </h3>
 
-                                return (
-                                  <text
-                                    x={x}
-                                    y={y}
-                                    textAnchor="middle"
-                                    dominantBaseline="central"
-                                    fill="#ffffff"
-                                    fontSize={8}
-                                    fontWeight={500}
-                                  >
-                                    {`${name}: ${formatCurrency(value)}`}
-                                  </text>
-                                );
-                              }}
-                            >
-                              {pieData.map((entry, index) => (
-                                <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                            <p className="text-sm text-gray-500 mt-1">
+                              Distribution of premium contribution factors
+                            </p>
+                          </div>
+
+                          <div className="h-[380px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={pieData}
+                                  dataKey="value"
+                                  cx="50%"
+                                  cy="50%"
+                                  outerRadius={120}
+                                  label={({ name, value }) =>
+                                    `${name}: ${formatCurrency(value)}`
+                                  }
+                                >
+                                  {pieData.map((entry, index) => (
+                                    <Cell
+                                      key={entry.name}
+                                      fill={COLORS[index % COLORS.length]}
+                                    />
+                                  ))}
+                                </Pie>
+
+                                <Tooltip
+                                  formatter={(value) => [
+                                    formatCurrency(value),
+                                    "Premium",
+                                  ]}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* RESULT DETAILS */}
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                            <p className="text-sm text-gray-500">
+                              Processing Time
+                            </p>
+
+                            <p className="text-3xl font-bold text-[#005BEA] mt-2">
+                              {predictionResult.processingTimeMs || 0} ms
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                            <p className="text-sm text-gray-500">
+                              Model Version
+                            </p>
+
+                            <p className="text-2xl font-bold text-[#005BEA] mt-2">
+                              {predictionResult.mlModelVersion || "unknown"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                            <p className="text-sm text-gray-500">
+                              Prediction Source
+                            </p>
+
+                            <p className="text-lg font-semibold mt-2">
+                              {predictionResult.predictionSource}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border bg-gradient-to-br from-[#005BEA]/10 to-[#00C6FB]/10 p-5 shadow-sm">
+                            <p className="text-sm text-gray-600">
+                              Annual Premium Estimate
+                            </p>
+
+                            <p className="text-3xl font-bold text-[#005BEA] mt-2">
+                              {formatCurrency(predictionResult.annualPremium)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ================= INTERPRETABILITY SECTION ================= */}
+
+                      {localContributions.length > 0 && (
+                        <div className="space-y-8">
+                          {/* SECTION HEADER */}
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                              <h2 className="text-2xl font-bold text-[#005BEA]">
+                                Model Interpretability
+                              </h2>
+
+                              <p className="text-sm text-gray-500 mt-1">
+                                Understand how the machine learning model
+                                generated this prediction
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* LOCAL CONTRIBUTIONS */}
+                          <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
+                            <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
+                              <CardTitle>Local Feature Contributions</CardTitle>
+
+                              <CardDescription>
+                                Influence of each feature on the current
+                                prediction
+                              </CardDescription>
+                            </CardHeader>
+
+                            <CardContent className="pt-6">
+                              <div className="h-[380px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={localContributions}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+
+                                    <XAxis
+                                      dataKey="feature"
+                                      tick={{ fontSize: 12 }}
+                                    />
+
+                                    <YAxis />
+
+                                    <Tooltip />
+
+                                    <Bar
+                                      dataKey="contribution"
+                                      fill="#005BEA"
+                                      radius={[8, 8, 0, 0]}
+                                    />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* GLOBAL IMPORTANCE */}
+                          <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
+                            <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
+                              <CardTitle>Global Feature Importance</CardTitle>
+
+                              <CardDescription>
+                                Overall contribution of features learned by the
+                                model
+                              </CardDescription>
+                            </CardHeader>
+
+                            <CardContent className="space-y-5 pt-6">
+                              {globalImportance.map((item) => (
+                                <div key={item.feature} className="space-y-2">
+                                  <div className="flex items-center justify-between text-sm font-medium">
+                                    <span>{item.feature}</span>
+
+                                    <span className="text-[#005BEA]">
+                                      {Number(item.importance || 0).toFixed(3)}
+                                    </span>
+                                  </div>
+
+                                  <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-gradient-to-r from-[#005BEA] to-[#00C6FB]"
+                                      style={{
+                                        width: `${Math.min(
+                                          Number(item.importance || 0) * 100,
+                                          100
+                                        )}%`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
                               ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => [formatCurrency(value), "Premium"]} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
+                            </CardContent>
+                          </Card>
 
-                      <div className="space-y-3">
-                        <div className="rounded-xl border bg-white p-4">
-                          <p className="text-sm text-gray-500">Processing time</p>
-                          <p className="text-xl font-semibold">
-                            {predictionResult.processingTimeMs || 0} ms
-                          </p>
+                          {/* METRICS + COVERAGE */}
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            {/* MODEL METRICS */}
+                            {modelMetrics && (
+                              <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
+                                <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
+                                  <CardTitle>Model Metrics</CardTitle>
+
+                                  <CardDescription>
+                                    Performance metrics of the ML model
+                                  </CardDescription>
+                                </CardHeader>
+
+                                <CardContent className="pt-6">
+                                  <div className="grid grid-cols-3 gap-4">
+                                    <div className="rounded-xl bg-[#F5F7FA] p-5 text-center">
+                                      <p className="text-sm text-gray-500">
+                                        MAE
+                                      </p>
+
+                                      <p className="text-2xl font-bold text-[#005BEA] mt-2">
+                                        {modelMetrics.mae ?? "-"}
+                                      </p>
+                                    </div>
+
+                                    <div className="rounded-xl bg-[#F5F7FA] p-5 text-center">
+                                      <p className="text-sm text-gray-500">
+                                        RMSE
+                                      </p>
+
+                                      <p className="text-2xl font-bold text-[#005BEA] mt-2">
+                                        {modelMetrics.rmse ?? "-"}
+                                      </p>
+                                    </div>
+
+                                    <div className="rounded-xl bg-[#F5F7FA] p-5 text-center">
+                                      <p className="text-sm text-gray-500">
+                                        R² Score
+                                      </p>
+
+                                      <p className="text-2xl font-bold text-[#005BEA] mt-2">
+                                        {modelMetrics.r2 ?? "-"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+
+                            {/* INPUT COVERAGE */}
+                            {inputCoverage && (
+                              <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
+                                <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
+                                  <CardTitle>Input Coverage</CardTitle>
+
+                                  <CardDescription>
+                                    Completeness of provided user inputs
+                                  </CardDescription>
+                                </CardHeader>
+
+                                <CardContent className="space-y-5 pt-6">
+                                  <div>
+                                    <p className="text-sm text-gray-500">
+                                      Coverage Score
+                                    </p>
+
+                                    <p className="text-4xl font-bold text-[#005BEA] mt-2">
+                                      {inputCoverage.coverageScore ?? "-"}
+                                    </p>
+                                  </div>
+
+                                  {inputCoverage.missingFeatures?.length >
+                                    0 && (
+                                    <div>
+                                      <p className="font-semibold text-red-600 mb-3">
+                                        Missing Features
+                                      </p>
+
+                                      <div className="flex flex-wrap gap-2">
+                                        {inputCoverage.missingFeatures.map(
+                                          (feature) => (
+                                            <span
+                                              key={feature}
+                                              className="px-3 py-1 rounded-full bg-red-50 border border-red-100 text-red-600 text-sm"
+                                            >
+                                              {feature}
+                                            </span>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            )}
+                          </div>
                         </div>
-                        <div className="rounded-xl border bg-white p-4">
-                          <p className="text-sm text-gray-500">Model version</p>
-                          <p className="text-xl font-semibold">
-                            {predictionResult.mlModelVersion || "unknown"}
-                          </p>
-                        </div>
-                        <div className="rounded-xl border bg-white p-4">
-                          <p className="text-sm text-gray-500">Source</p>
-                          <p className="text-xl font-semibold">
-                            {predictionResult.predictionSource}
-                          </p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -805,7 +1179,11 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                   <p className="text-sm text-gray-600 mb-4">
                     {profileForm.email || session?.user?.email}
                   </p>
-                  <Button variant="outline" className="w-full" onClick={() => setActiveTab("premium")}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setActiveTab("premium")}
+                  >
                     Run New Prediction
                   </Button>
                 </CardContent>
@@ -825,7 +1203,10 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                       <Input
                         value={profileForm.name}
                         onChange={(e) =>
-                          setProfileForm({ ...profileForm, name: e.target.value })
+                          setProfileForm({
+                            ...profileForm,
+                            name: e.target.value,
+                          })
                         }
                       />
                     </div>
@@ -838,7 +1219,10 @@ export function DashboardPage({ onNavigate, session, onLogout, onSessionUpdate }
                       <Input
                         value={profileForm.phone}
                         onChange={(e) =>
-                          setProfileForm({ ...profileForm, phone: e.target.value })
+                          setProfileForm({
+                            ...profileForm,
+                            phone: e.target.value,
+                          })
                         }
                       />
                     </div>
