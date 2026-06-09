@@ -210,18 +210,218 @@ public class PredictionService {
     }
 
     private Map<String, Object> buildFeatureMap(PredictionRequest request, double bmi) {
+
         Map<String, Object> features = new LinkedHashMap<>();
+
+        // ================= BASIC =================
+
         features.put("age", request.getAge());
+
         features.put("gender", request.getGender());
+
         features.put("height_cm", request.getHeightCm());
+
         features.put("weight_kg", request.getWeightKg());
+
         features.put("bmi", bmi);
+
         features.put("smoking_status", request.getSmokingStatus());
+
         features.put("region", request.getRegion());
-        features.put("children", request.getChildren() == null ? 0 : request.getChildren());
+
+        features.put(
+                "children",
+                request.getChildren() == null ? 0 : request.getChildren()
+        );
+
+        // ================= LIFESTYLE =================
+
+        features.put(
+                "alcohol_freq",
+                request.getAlcoholFreq() == null ? "never" : request.getAlcoholFreq()
+        );
+
+        features.put(
+                "urban_rural",
+                request.getUrbanRural() == null ? "urban" : request.getUrbanRural()
+        );
+
+        features.put(
+                "household_size",
+                request.getHouseholdSize() == null ? 0 : request.getHouseholdSize()
+        );
+
+        features.put(
+                "income",
+                request.getIncome() == null ? 0d : request.getIncome()
+        );
+
+        features.put(
+                "employment_status",
+                request.getEmploymentStatus() == null
+                        ? "unknown"
+                        : request.getEmploymentStatus()
+        );
+
+        // ================= HEALTHCARE USAGE =================
+
+        features.put(
+                "visits_last_year",
+                request.getVisitsLastYear() == null ? 0 : request.getVisitsLastYear()
+        );
+
+        features.put(
+                "hospitalizations_last_3yrs",
+                request.getHospitalizationsLast3Yrs() == null
+                        ? 0
+                        : request.getHospitalizationsLast3Yrs()
+        );
+
+        features.put(
+                "days_hospitalized_last_3yrs",
+                request.getDaysHospitalizedLast3Yrs() == null
+                        ? 0
+                        : request.getDaysHospitalizedLast3Yrs()
+        );
+
+        features.put(
+                "medication_count",
+                request.getMedicationCount() == null ? 0 : request.getMedicationCount()
+        );
+
+        // ================= MEDICAL CONDITIONS =================
+
+        features.put(
+                "hypertension",
+                Boolean.TRUE.equals(request.getHypertension()) ? 1 : 0
+        );
+
+        features.put(
+                "diabetes",
+                Boolean.TRUE.equals(request.getDiabetes()) ? 1 : 0
+        );
+
+        features.put(
+                "asthma",
+                Boolean.TRUE.equals(request.getAsthma()) ? 1 : 0
+        );
+
+        features.put(
+                "copd",
+                Boolean.TRUE.equals(request.getCopd()) ? 1 : 0
+        );
+
+        features.put(
+                "cardiovascular_disease",
+                Boolean.TRUE.equals(request.getCardiovascularDisease()) ? 1 : 0
+        );
+
+        features.put(
+                "cancer_history",
+                Boolean.TRUE.equals(request.getCancerHistory()) ? 1 : 0
+        );
+
+        features.put(
+                "kidney_disease",
+                Boolean.TRUE.equals(request.getKidneyDisease()) ? 1 : 0
+        );
+
+        features.put(
+                "liver_disease",
+                Boolean.TRUE.equals(request.getLiverDisease()) ? 1 : 0
+        );
+
+        features.put(
+                "arthritis",
+                Boolean.TRUE.equals(request.getArthritis()) ? 1 : 0
+        );
+
+        features.put(
+                "mental_health",
+                Boolean.TRUE.equals(request.getMentalHealth()) ? 1 : 0
+        );
+
+        features.put(
+                "chronic_count",
+                request.getChronicCount() == null ? 0 : request.getChronicCount()
+        );
+
+        features.put(
+                "is_high_risk",
+                Boolean.TRUE.equals(request.getHighRisk()) ? 1 : 0
+        );
+
+        // ================= CLINICAL METRICS =================
+
+        features.put(
+                "systolic_bp",
+                request.getSystolicBp() == null ? 0d : request.getSystolicBp()
+        );
+
+        features.put(
+                "diastolic_bp",
+                request.getDiastolicBp() == null ? 0d : request.getDiastolicBp()
+        );
+
+        features.put(
+                "ldl",
+                request.getLdl() == null ? 0d : request.getLdl()
+        );
+
+        features.put(
+                "hba1c",
+                request.getHba1c() == null ? 0d : request.getHba1c()
+        );
+
+        // ================= PROCEDURE HISTORY =================
+
+        features.put(
+                "had_major_procedure",
+                Boolean.TRUE.equals(request.getHadMajorProcedure()) ? 1 : 0
+        );
+
+        features.put(
+                "proc_imaging_count",
+                request.getProcImagingCount() == null
+                        ? 0
+                        : request.getProcImagingCount()
+        );
+
+        features.put(
+                "proc_surgery_count",
+                request.getProcSurgeryCount() == null
+                        ? 0
+                        : request.getProcSurgeryCount()
+        );
+
+        features.put(
+                "proc_physio_count",
+                request.getProcPhysioCount() == null
+                        ? 0
+                        : request.getProcPhysioCount()
+        );
+
+        features.put(
+                "proc_consult_count",
+                request.getProcConsultCount() == null
+                        ? 0
+                        : request.getProcConsultCount()
+        );
+
+        features.put(
+                "proc_lab_count",
+                request.getProcLabCount() == null
+                        ? 0
+                        : request.getProcLabCount()
+        );
+
+        // ================= EXTRA =================
+
         features.put("currency", properties.getCurrency());
+
         return features;
     }
+
 
     private double calculateBmi(Double heightCm, Double weightKg) {
         if (heightCm == null || weightKg == null || heightCm <= 0d) {

@@ -24,6 +24,10 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+
+import { Checkbox } from "./ui/checkbox";
+import { Separator } from "./ui/separator";
+
 import {
   Select,
   SelectContent,
@@ -66,6 +70,40 @@ const DEFAULT_FORM = {
   smoking: "",
   region: "",
   children: "",
+
+  alcohol_freq: "",
+  urban_rural: "",
+  household_size: "",
+  income: "",
+  employment_status: "",
+
+  visits_last_year: "",
+  hospitalizations_last_3yrs: "",
+  days_hospitalized_last_3yrs: "",
+  medication_count: "",
+
+  hypertension: false,
+  diabetes: false,
+  asthma: false,
+  copd: false,
+  cardiovascular_disease: false,
+  cancer_history: false,
+  kidney_disease: false,
+  liver_disease: false,
+  arthritis: false,
+  mental_health: false,
+
+  systolic_bp: "",
+  diastolic_bp: "",
+  ldl: "",
+  hba1c: "",
+
+  had_major_procedure: false,
+  proc_imaging_count: "",
+  proc_surgery_count: "",
+  proc_physio_count: "",
+  proc_consult_count: "",
+  proc_lab_count: "",
 };
 
 const DEFAULT_PROFILE = {
@@ -156,6 +194,7 @@ export function DashboardPage({
   const [summary, setSummary] = useState(null);
   const [predictionResult, setPredictionResult] = useState(null);
   const [profileForm, setProfileForm] = useState(DEFAULT_PROFILE);
+  const [usdToInrRate, setUsdToInrRate] = useState(85);
   const [formData, setFormData] = useState(DEFAULT_FORM);
 
   const handleSessionExpiry = () => {
@@ -188,9 +227,6 @@ export function DashboardPage({
         });
 
         setSummary(summaryResponse);
-        if (summaryResponse?.latestPrediction) {
-          setPredictionResult(summaryResponse.latestPrediction);
-        }
       } catch (error) {
         setErrorMessage(error.message || "Unable to load dashboard data");
         toast.error(error.message || "Unable to load dashboard data");
@@ -217,6 +253,46 @@ export function DashboardPage({
     }));
   }, [formData.height, formData.weight]);
 
+  useEffect(() => {
+    const fetchExchangeRate = async () => {
+      try {
+        const response = await fetch("https://open.er-api.com/v6/latest/USD");
+
+        const data = await response.json();
+
+        if (data?.rates?.INR) {
+          setUsdToInrRate(data.rates.INR);
+        }
+      } catch (error) {
+        console.error("Exchange rate fetch failed:", error);
+      }
+    };
+
+    fetchExchangeRate();
+  }, []);
+
+  const chronicConditions = [
+    "hypertension",
+    "diabetes",
+    "asthma",
+    "copd",
+    "cardiovascular_disease",
+    "cancer_history",
+    "kidney_disease",
+    "liver_disease",
+    "arthritis",
+    "mental_health",
+  ];
+
+  const chronicCount = chronicConditions.filter(
+    (condition) => formData[condition]
+  ).length;
+
+  const isHighRisk =
+    chronicCount >= 3 ||
+    formData.smoking === "smoker" ||
+    Number(formData.hospitalizations_last_3yrs || 0) > 2;
+
   const monthlyPremiumData = useMemo(
     () => buildMonthlyChartData(summary?.monthlyTrend),
     [summary]
@@ -227,6 +303,11 @@ export function DashboardPage({
     () => buildPieData(predictionResult?.breakdown),
     [predictionResult]
   );
+  useEffect(() => {
+    console.log("Prediction Result:", predictionResult);
+    console.log("Breakdown:", predictionResult?.breakdown);
+  }, [predictionResult]);
+
   const localContributions =
     predictionResult?.mlResponse?.interpretability?.localFeatureContributions ||
     [];
@@ -241,13 +322,13 @@ export function DashboardPage({
   const inputCoverage =
     predictionResult?.mlResponse?.interpretability?.inputCoverage;
   const annualPremium =
-    summary?.latestPrediction?.annualPremium ||
-    predictionResult?.annualPremium ||
-    0;
+    (summary?.latestPrediction?.annualPremium ||
+      predictionResult?.annualPremium ||
+      0) * (usdToInrRate || 85);
   const monthlyPremium =
-    predictionResult?.monthlyPremium ||
-    summary?.latestPrediction?.monthlyPremium ||
-    0;
+    (predictionResult?.monthlyPremium ||
+      summary?.latestPrediction?.monthlyPremium ||
+      0) * (usdToInrRate || 85);
   const currentFallback = Boolean(predictionResult?.fallbackUsed);
 
   const sidebarItems = [
@@ -257,6 +338,9 @@ export function DashboardPage({
   ];
 
   const handleLogout = () => {
+    setPredictionResult(null);
+    setFormData(DEFAULT_FORM);
+
     onLogout?.();
     onNavigate("home");
   };
@@ -270,12 +354,66 @@ export function DashboardPage({
       const payload = {
         age: Number(formData.age),
         gender: formData.gender,
+
         heightCm: Number(formData.height),
         weightKg: Number(formData.weight),
-        bmi: formData.bmi ? Number(formData.bmi) : null,
+
+        bmi: formData.bmi ? Number(formData.bmi) : 0,
+
         smokingStatus: formData.smoking,
         region: formData.region,
-        children: formData.children ? Number(formData.children) : 0,
+
+        children: Number(formData.children || 0),
+
+        alcoholFreq: formData.alcohol_freq,
+        urbanRural: formData.urban_rural,
+        householdSize: Number(formData.household_size || 0),
+        income: Number(formData.income || 0),
+        employmentStatus: formData.employment_status,
+
+        visitsLastYear: Number(formData.visits_last_year || 0),
+
+        hospitalizationsLast3Yrs: Number(
+          formData.hospitalizations_last_3yrs || 0
+        ),
+
+        daysHospitalizedLast3Yrs: Number(
+          formData.days_hospitalized_last_3yrs || 0
+        ),
+
+        medicationCount: Number(formData.medication_count || 0),
+
+        hypertension: formData.hypertension,
+        diabetes: formData.diabetes,
+        asthma: formData.asthma,
+        copd: formData.copd,
+        cardiovascularDisease: formData.cardiovascular_disease,
+        cancerHistory: formData.cancer_history,
+        kidneyDisease: formData.kidney_disease,
+        liverDisease: formData.liver_disease,
+        arthritis: formData.arthritis,
+        mentalHealth: formData.mental_health,
+
+        chronicCount,
+        highRisk: isHighRisk,
+
+        systolicBp: Number(formData.systolic_bp || 0),
+        diastolicBp: Number(formData.diastolic_bp || 0),
+
+        ldl: Number(formData.ldl || 0),
+        hba1c: Number(formData.hba1c || 0),
+
+        hadMajorProcedure: formData.had_major_procedure,
+
+        procImagingCount: Number(formData.proc_imaging_count || 0),
+
+        procSurgeryCount: Number(formData.proc_surgery_count || 0),
+
+        procPhysioCount: Number(formData.proc_physio_count || 0),
+
+        procConsultCount: Number(formData.proc_consult_count || 0),
+
+        procLabCount: Number(formData.proc_lab_count || 0),
       };
 
       const result = await api.createPrediction(session.token, payload);
@@ -521,10 +659,23 @@ export function DashboardPage({
                         {/* BREAKDOWN */}
                         <div className="space-y-5">
                           {pieData.map((item, index) => {
+                            const totalContribution = pieData.reduce(
+                              (sum, current) =>
+                                sum + Number(current.value || 0),
+                              0
+                            );
+
+                            const contributionValue =
+                              totalContribution > 0
+                                ? (Number(item.value || 0) /
+                                    totalContribution) *
+                                  monthlyPremium
+                                : 0;
+
                             const percentage =
                               monthlyPremium > 0
                                 ? (
-                                    (Number(item.value || 0) /
+                                    (contributionValue /
                                       Number(monthlyPremium || 1)) *
                                     100
                                   ).toFixed(1)
@@ -545,7 +696,7 @@ export function DashboardPage({
                                   </div>
 
                                   <p className="font-semibold text-[#005BEA]">
-                                    {formatCurrency(item.value)}
+                                    {formatCurrency(contributionValue)}
                                   </p>
                                 </div>
 
@@ -832,6 +983,455 @@ export function DashboardPage({
                           }
                         />
                       </div>
+                      <div className="md:col-span-2">
+                        <Separator className="my-2" />
+                        <h3 className="text-lg font-semibold text-[#005BEA]">
+                          Lifestyle & Healthcare
+                        </h3>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Alcohol Frequency</Label>
+
+                        <Select
+                          value={formData.alcohol_freq}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, alcohol_freq: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select alcohol frequency" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="never">Never</SelectItem>
+                            <SelectItem value="occasionally">
+                              Occasionally
+                            </SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="daily">Daily</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Urban / Rural</Label>
+
+                        <Select
+                          value={formData.urban_rural}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, urban_rural: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select location type" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="urban">Urban</SelectItem>
+                            <SelectItem value="rural">Rural</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Household Size</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.household_size}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              household_size: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Annual Income</Label>
+
+                        <Input
+                          type="number"
+                          placeholder="Annual income"
+                          value={formData.income}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              income: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Employment Status</Label>
+
+                        <Select
+                          value={formData.employment_status}
+                          onValueChange={(value) =>
+                            setFormData({
+                              ...formData,
+                              employment_status: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Employment status" />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="employed">Employed</SelectItem>
+                            <SelectItem value="self-employed">
+                              Self Employed
+                            </SelectItem>
+                            <SelectItem value="unemployed">
+                              Unemployed
+                            </SelectItem>
+                            <SelectItem value="student">Student</SelectItem>
+                            <SelectItem value="retired">Retired</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Doctor Visits Last Year</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.visits_last_year}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              visits_last_year: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Hospitalizations (Last 3 Years)</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.hospitalizations_last_3yrs}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              hospitalizations_last_3yrs: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Days Hospitalized</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.days_hospitalized_last_3yrs}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              days_hospitalized_last_3yrs: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Medication Count</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.medication_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              medication_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <Separator className="my-2" />
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-[#005BEA]">
+                              Medical Conditions
+                            </h3>
+
+                            <p className="text-sm text-gray-500">
+                              Select any chronic conditions you currently have
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500">
+                              Chronic Count
+                            </p>
+
+                            <p className="text-2xl font-bold text-[#005BEA]">
+                              {chronicCount}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          ["hypertension", "Hypertension"],
+                          ["diabetes", "Diabetes"],
+                          ["asthma", "Asthma"],
+                          ["copd", "COPD"],
+                          ["cardiovascular_disease", "Cardiovascular Disease"],
+                          ["cancer_history", "Cancer History"],
+                          ["kidney_disease", "Kidney Disease"],
+                          ["liver_disease", "Liver Disease"],
+                          ["arthritis", "Arthritis"],
+                          ["mental_health", "Mental Health Condition"],
+                        ].map(([key, label]) => (
+                          <div
+                            key={key}
+                            className="flex items-center justify-between rounded-xl border p-4 bg-white shadow-sm"
+                          >
+                            <Label className="cursor-pointer">{label}</Label>
+
+                            <Checkbox
+                              checked={formData[key]}
+                              onCheckedChange={(checked) =>
+                                setFormData({
+                                  ...formData,
+                                  [key]: Boolean(checked),
+                                })
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <div
+                          className={`rounded-xl p-4 border ${
+                            isHighRisk
+                              ? "bg-red-50 border-red-200"
+                              : "bg-green-50 border-green-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p
+                                className={`font-semibold ${
+                                  isHighRisk ? "text-red-700" : "text-green-700"
+                                }`}
+                              >
+                                {isHighRisk
+                                  ? "High Risk Profile"
+                                  : "Moderate Risk Profile"}
+                              </p>
+
+                              <p className="text-sm text-gray-600 mt-1">
+                                Risk level derived automatically using smoking
+                                status, hospitalization history, and chronic
+                                conditions.
+                              </p>
+                            </div>
+
+                            <Shield
+                              className={`h-8 w-8 ${
+                                isHighRisk ? "text-red-600" : "text-green-600"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Separator className="my-2" />
+
+                        <h3 className="text-lg font-semibold text-[#005BEA]">
+                          Clinical Measurements (Optional)
+                        </h3>
+
+                        <p className="text-sm text-gray-500">
+                          Optional health metrics for improved prediction
+                          accuracy
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Systolic BP</Label>
+
+                        <Input
+                          type="number"
+                          placeholder="Example: 120"
+                          value={formData.systolic_bp}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              systolic_bp: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Diastolic BP</Label>
+
+                        <Input
+                          type="number"
+                          placeholder="Example: 80"
+                          value={formData.diastolic_bp}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              diastolic_bp: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>LDL Cholesterol</Label>
+
+                        <Input
+                          type="number"
+                          placeholder="Example: 100"
+                          value={formData.ldl}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              ldl: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>HbA1c</Label>
+
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="Example: 5.7"
+                          value={formData.hba1c}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              hba1c: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <Separator className="my-2" />
+
+                        <h3 className="text-lg font-semibold text-[#005BEA]">
+                          Procedure History
+                        </h3>
+
+                        <p className="text-sm text-gray-500">
+                          Previous procedures and medical service usage
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-2 flex items-center justify-between rounded-xl border p-4 bg-white shadow-sm">
+                        <div>
+                          <p className="font-medium">Major Procedure History</p>
+
+                          <p className="text-sm text-gray-500">
+                            Includes surgeries or major interventions
+                          </p>
+                        </div>
+
+                        <Checkbox
+                          checked={formData.had_major_procedure}
+                          onCheckedChange={(checked) =>
+                            setFormData({
+                              ...formData,
+                              had_major_procedure: Boolean(checked),
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Imaging Procedures</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.proc_imaging_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              proc_imaging_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Surgery Procedures</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.proc_surgery_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              proc_surgery_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Physiotherapy Procedures</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.proc_physio_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              proc_physio_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Consultation Procedures</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.proc_consult_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              proc_consult_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Lab Procedures</Label>
+
+                        <Input
+                          type="number"
+                          value={formData.proc_lab_count}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              proc_lab_count: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
                     </div>
 
                     <Button
@@ -866,7 +1466,9 @@ export function DashboardPage({
                         Estimated Monthly Premium
                       </p>
                       <p className="text-3xl text-[#005BEA] font-bold">
-                        {formatCurrency(predictionResult.monthlyPremium)}
+                        {formatCurrency(
+                          predictionResult.monthlyPremium * usdToInrRate
+                        )}
                       </p>
                       <p className="mt-2 text-xs text-gray-500">
                         {predictionResult.fallbackUsed
@@ -892,32 +1494,55 @@ export function DashboardPage({
 
                           <div className="h-[380px]">
                             <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={pieData}
-                                  dataKey="value"
-                                  cx="50%"
-                                  cy="50%"
-                                  outerRadius={120}
-                                  label={({ name, value }) =>
-                                    `${name}: ${formatCurrency(value)}`
-                                  }
-                                >
-                                  {pieData.map((entry, index) => (
-                                    <Cell
-                                      key={entry.name}
-                                      fill={COLORS[index % COLORS.length]}
-                                    />
-                                  ))}
-                                </Pie>
+                              {(() => {
+                                const totalContribution = pieData.reduce(
+                                  (sum, item) => sum + Number(item.value || 0),
+                                  0
+                                );
 
-                                <Tooltip
-                                  formatter={(value) => [
-                                    formatCurrency(value),
-                                    "Premium",
-                                  ]}
-                                />
-                              </PieChart>
+                                const normalizedPieData = pieData.map(
+                                  (item) => ({
+                                    ...item,
+                                    premiumValue:
+                                      totalContribution > 0
+                                        ? (Number(item.value || 0) /
+                                            totalContribution) *
+                                          monthlyPremium
+                                        : 0,
+                                  })
+                                );
+
+                                return (
+                                  <PieChart>
+                                    <Pie
+                                      data={normalizedPieData}
+                                      dataKey="premiumValue"
+                                      cx="50%"
+                                      cy="50%"
+                                      outerRadius={120}
+                                      label={({ name, premiumValue }) =>
+                                        `${name}: ${formatCurrency(
+                                          Number(premiumValue || 0)
+                                        )}`
+                                      }
+                                    >
+                                      {normalizedPieData.map((entry, index) => (
+                                        <Cell
+                                          key={entry.name}
+                                          fill={COLORS[index % COLORS.length]}
+                                        />
+                                      ))}
+                                    </Pie>
+
+                                    <Tooltip
+                                      formatter={(value) => [
+                                        formatCurrency(Number(value || 0)),
+                                        "Premium Contribution",
+                                      ]}
+                                    />
+                                  </PieChart>
+                                );
+                              })()}
                             </ResponsiveContainer>
                           </div>
                         </div>
@@ -960,7 +1585,9 @@ export function DashboardPage({
                             </p>
 
                             <p className="text-3xl font-bold text-[#005BEA] mt-2">
-                              {formatCurrency(predictionResult.annualPremium)}
+                              {formatCurrency(
+                                predictionResult.annualPremium * usdToInrRate
+                              )}
                             </p>
                           </div>
                         </div>
@@ -1058,103 +1685,6 @@ export function DashboardPage({
                               ))}
                             </CardContent>
                           </Card>
-
-                          {/* METRICS + COVERAGE */}
-                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                            {/* MODEL METRICS */}
-                            {modelMetrics && (
-                              <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
-                                <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
-                                  <CardTitle>Model Metrics</CardTitle>
-
-                                  <CardDescription>
-                                    Performance metrics of the ML model
-                                  </CardDescription>
-                                </CardHeader>
-
-                                <CardContent className="pt-6">
-                                  <div className="grid grid-cols-3 gap-4">
-                                    <div className="rounded-xl bg-[#F5F7FA] p-5 text-center">
-                                      <p className="text-sm text-gray-500">
-                                        MAE
-                                      </p>
-
-                                      <p className="text-2xl font-bold text-[#005BEA] mt-2">
-                                        {modelMetrics.mae ?? "-"}
-                                      </p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-[#F5F7FA] p-5 text-center">
-                                      <p className="text-sm text-gray-500">
-                                        RMSE
-                                      </p>
-
-                                      <p className="text-2xl font-bold text-[#005BEA] mt-2">
-                                        {modelMetrics.rmse ?? "-"}
-                                      </p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-[#F5F7FA] p-5 text-center">
-                                      <p className="text-sm text-gray-500">
-                                        R² Score
-                                      </p>
-
-                                      <p className="text-2xl font-bold text-[#005BEA] mt-2">
-                                        {modelMetrics.r2 ?? "-"}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-
-                            {/* INPUT COVERAGE */}
-                            {inputCoverage && (
-                              <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
-                                <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
-                                  <CardTitle>Input Coverage</CardTitle>
-
-                                  <CardDescription>
-                                    Completeness of provided user inputs
-                                  </CardDescription>
-                                </CardHeader>
-
-                                <CardContent className="space-y-5 pt-6">
-                                  <div>
-                                    <p className="text-sm text-gray-500">
-                                      Coverage Score
-                                    </p>
-
-                                    <p className="text-4xl font-bold text-[#005BEA] mt-2">
-                                      {inputCoverage.coverageScore ?? "-"}
-                                    </p>
-                                  </div>
-
-                                  {inputCoverage.missingFeatures?.length >
-                                    0 && (
-                                    <div>
-                                      <p className="font-semibold text-red-600 mb-3">
-                                        Missing Features
-                                      </p>
-
-                                      <div className="flex flex-wrap gap-2">
-                                        {inputCoverage.missingFeatures.map(
-                                          (feature) => (
-                                            <span
-                                              key={feature}
-                                              className="px-3 py-1 rounded-full bg-red-50 border border-red-100 text-red-600 text-sm"
-                                            >
-                                              {feature}
-                                            </span>
-                                          )
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            )}
-                          </div>
                         </div>
                       )}
                     </div>
