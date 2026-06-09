@@ -125,9 +125,6 @@ public class MlPredictionApiResponse {
 
         private List<FeatureImportance> globalFeatureImportance;
 
-        private ModelMetrics modelMetrics;
-
-        private InputCoverage inputCoverage;
 
         public List<FeatureContribution> getLocalFeatureContributions() {
             return localFeatureContributions;
@@ -145,21 +142,6 @@ public class MlPredictionApiResponse {
             this.globalFeatureImportance = globalFeatureImportance;
         }
 
-        public ModelMetrics getModelMetrics() {
-            return modelMetrics;
-        }
-
-        public void setModelMetrics(ModelMetrics modelMetrics) {
-            this.modelMetrics = modelMetrics;
-        }
-
-        public InputCoverage getInputCoverage() {
-            return inputCoverage;
-        }
-
-        public void setInputCoverage(InputCoverage inputCoverage) {
-            this.inputCoverage = inputCoverage;
-        }
     }
 
     public static class FeatureContribution {
@@ -206,57 +188,4 @@ public class MlPredictionApiResponse {
         }
     }
 
-    public static class ModelMetrics {
-
-        private Double mae;
-        private Double rmse;
-        private Double r2;
-
-        public Double getMae() {
-            return mae;
-        }
-
-        public void setMae(Double mae) {
-            this.mae = mae;
-        }
-
-        public Double getRmse() {
-            return rmse;
-        }
-
-        public void setRmse(Double rmse) {
-            this.rmse = rmse;
-        }
-
-        public Double getR2() {
-            return r2;
-        }
-
-        public void setR2(Double r2) {
-            this.r2 = r2;
-        }
-    }
-
-    public static class InputCoverage {
-
-        private Double coverageScore;
-
-        private List<String> missingFeatures;
-
-        public Double getCoverageScore() {
-            return coverageScore;
-        }
-
-        public void setCoverageScore(Double coverageScore) {
-            this.coverageScore = coverageScore;
-        }
-
-        public List<String> getMissingFeatures() {
-            return missingFeatures;
-        }
-
-        public void setMissingFeatures(List<String> missingFeatures) {
-            this.missingFeatures = missingFeatures;
-        }
-    }
 }

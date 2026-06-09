@@ -23,675 +23,374 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class MlServiceClient {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(MlServiceClient.class);
-
-    private final RestTemplate restTemplate;
-
-    private final MediPredictProperties properties;
-
-    public MlServiceClient(
-            RestTemplate restTemplate,
-            MediPredictProperties properties
-    ) {
-        this.restTemplate = restTemplate;
-        this.properties = properties;
-    }
-
-    public MlPredictionResult predict(
-            Map<String, Object> features,
-            boolean returnProbabilities
-    ) {
+	private static final Logger log = LoggerFactory.getLogger(MlServiceClient.class);
 
-        MlPredictionRequest request =
-                new MlPredictionRequest(
-                        features,
-                        returnProbabilities
-                );
+	private final RestTemplate restTemplate;
 
-        if (!isHealthy()) {
+	private final MediPredictProperties properties;
 
-            log.warn(
-                    "ML service unhealthy. Using fallback prediction."
-            );
+	public MlServiceClient(RestTemplate restTemplate, MediPredictProperties properties) {
+		this.restTemplate = restTemplate;
+		this.properties = properties;
+	}
 
-            return fallbackPrediction(features);
-        }
+	public MlPredictionResult predict(Map<String, Object> features, boolean returnProbabilities) {
 
-        try {
+		MlPredictionRequest request = new MlPredictionRequest(features, returnProbabilities);
 
-            log.info(
-                    "Calling ML prediction API at {}",
-                    properties.getMlServiceBaseUrl() + "/predict"
-            );
-
-            ResponseEntity<MlPredictionApiResponse> response =
-                    restTemplate.postForEntity(
-                            properties.getMlServiceBaseUrl() + "/predict",
-                            request,
-                            MlPredictionApiResponse.class
-                    );
-
-            MlPredictionApiResponse body =
-                    response.getBody();
+		if (!isHealthy()) {
 
-            if (
-                    body == null
-                            || !body.isSuccess()
-                            || (
-                            body.getPrediction() == null
-                                    && body.getMonthlyPrediction() == null
-                    )
-            ) {
+			log.warn("ML service unhealthy. Using fallback prediction.");
 
-                log.error(
-                        "Invalid ML response received"
-                );
+			return fallbackPrediction(features);
+		}
 
-                throw new ExternalServiceException(
-                        "Invalid ML response"
-                );
-            }
+		try {
 
-            Double monthlyPrediction =
-                    body.getMonthlyPrediction();
+			log.info("Calling ML prediction API at {}", properties.getMlServiceBaseUrl() + "/predict");
 
-            Double annualPrediction =
-                    body.getAnnualPrediction();
+			ResponseEntity<MlPredictionApiResponse> response = restTemplate.postForEntity(
+					properties.getMlServiceBaseUrl() + "/predict", request, MlPredictionApiResponse.class);
 
-            if (
-                    monthlyPrediction == null
-                            && body.getPrediction() != null
-            ) {
+			MlPredictionApiResponse body = response.getBody();
 
-                monthlyPrediction =
-                        body.getPrediction().doubleValue();
-            }
+			if (body == null || !body.isSuccess()
+					|| (body.getPrediction() == null && body.getMonthlyPrediction() == null)) {
 
-            if (
-                    annualPrediction == null
-                            && monthlyPrediction != null
-            ) {
+				log.error("Invalid ML response received");
 
-                annualPrediction =
-                        monthlyPrediction * 12;
-            }
+				throw new ExternalServiceException("Invalid ML response");
+			}
 
-            MlPredictionResult result =
-                    new MlPredictionResult();
+			Double monthlyPrediction = body.getMonthlyPrediction();
 
-            result.setPrediction(monthlyPrediction);
+			Double annualPrediction = body.getAnnualPrediction();
 
-            result.setMonthlyPrediction(
-                    monthlyPrediction
-            );
+			if (monthlyPrediction == null && body.getPrediction() != null) {
 
-            result.setAnnualPrediction(
-                    annualPrediction
-            );
+				monthlyPrediction = body.getPrediction().doubleValue();
+			}
 
-            result.setProcessingTimeMs(
-                    body.getProcessingTimeMs()
-            );
+			if (annualPrediction == null && monthlyPrediction != null) {
 
-            result.setModelVersion(
-                    body.getModelVersion()
-            );
+				annualPrediction = monthlyPrediction * 12;
+			}
 
-            result.setSource("ml_service");
+			MlPredictionResult result = new MlPredictionResult();
 
-            result.setFallbackUsed(false);
+			result.setPrediction(monthlyPrediction);
 
-            result.setInterpretability(
-                    body.getInterpretability()
-            );
+			result.setMonthlyPrediction(monthlyPrediction);
 
-            result.setRawMlResponse(body);
+			result.setAnnualPrediction(annualPrediction);
 
-            if (
-                    body.getBreakdown() != null
-                            && !body.getBreakdown().isEmpty()
-            ) {
+			result.setProcessingTimeMs(body.getProcessingTimeMs());
 
-                result.setBreakdown(
-                        body.getBreakdown()
-                );
+			result.setModelVersion(body.getModelVersion());
 
-            } else {
+			result.setSource("ml_service");
 
-                result.setBreakdown(
-                        buildBreakdown(
-                                features,
-                                monthlyPrediction,
-                                false
-                        )
-                );
-            }
+			result.setFallbackUsed(false);
 
-            log.info(
-                    "ML prediction successful"
-            );
+			result.setInterpretability(body.getInterpretability());
 
-            return result;
+			result.setRawMlResponse(body);
 
-        } catch (RestClientException ex) {
+			if (body.getBreakdown() != null && !body.getBreakdown().isEmpty()) {
 
-            log.error(
-                    "ML API call failed. Falling back to heuristic prediction",
-                    ex
-            );
+				result.setBreakdown(body.getBreakdown());
 
-            return fallbackPrediction(features);
-        }
-    }
+			} else {
 
-    public MlHealthResponse health() {
+				result.setBreakdown(buildBreakdown(features, monthlyPrediction, false));
+			}
 
-        try {
+			log.info("ML prediction successful");
 
-            return restTemplate.getForObject(
-                    properties.getMlServiceBaseUrl() + "/health",
-                    MlHealthResponse.class
-            );
+			return result;
 
-        } catch (RestClientException exception) {
+		} catch (RestClientException ex) {
 
-            MlHealthResponse response =
-                    new MlHealthResponse();
+			log.error("ML API call failed. Falling back to heuristic prediction", ex);
 
-            response.setStatus("unavailable");
+			return fallbackPrediction(features);
+		}
+	}
 
-            response.setModelLoaded(false);
+	public MlHealthResponse health() {
 
-            response.setVersion("unknown");
+		try {
 
-            return response;
-        }
-    }
+			return restTemplate.getForObject(properties.getMlServiceBaseUrl() + "/health", MlHealthResponse.class);
 
-    public Map<String, Object> modelInfo() {
+		} catch (RestClientException exception) {
 
-        try {
+			MlHealthResponse response = new MlHealthResponse();
 
-            ResponseEntity<Map> response =
-                    restTemplate.getForEntity(
-                            properties.getMlServiceBaseUrl() + "/model/info",
-                            Map.class
-                    );
+			response.setStatus("unavailable");
 
-            if (response.getBody() == null) {
+			response.setModelLoaded(false);
 
-                return Map.of(
-                        "is_loaded",
-                        false
-                );
-            }
+			response.setVersion("unknown");
 
-            return response.getBody();
+			return response;
+		}
+	}
 
-        } catch (RestClientException exception) {
+	public Map<String, Object> modelInfo() {
 
-            Map<String, Object> fallback =
-                    new LinkedHashMap<>();
+		try {
 
-            fallback.put("is_loaded", false);
+			ResponseEntity<Map> response = restTemplate.getForEntity(properties.getMlServiceBaseUrl() + "/model/info",
+					Map.class);
 
-            fallback.put("model_type", null);
+			if (response.getBody() == null) {
 
-            fallback.put("model_version", "unknown");
+				return Map.of("is_loaded", false);
+			}
 
-            fallback.put("feature_names", List.of());
+			return response.getBody();
 
-            return fallback;
-        }
-    }
+		} catch (RestClientException exception) {
 
-    public boolean isHealthy() {
+			Map<String, Object> fallback = new LinkedHashMap<>();
 
-        MlHealthResponse response =
-                health();
+			fallback.put("is_loaded", false);
 
-        return response.getStatus() != null
-                && !"unavailable".equalsIgnoreCase(
-                response.getStatus()
-        )
-                && Boolean.TRUE.equals(
-                response.getModelLoaded()
-        );
-    }
+			fallback.put("model_type", null);
 
-    private MlPredictionResult fallbackPrediction(
-            Map<String, Object> features
-    ) {
+			fallback.put("model_version", "unknown");
 
-        double age =
-                asDouble(
-                        features.get("age"),
-                        35d
-                );
+			fallback.put("feature_names", List.of());
 
-        double bmi =
-                asDouble(
-                        features.get("bmi"),
-                        27d
-                );
+			return fallback;
+		}
+	}
 
-        double heightCm =
-                asDouble(
-                        features.get("height_cm"),
-                        170d
-                );
+	public boolean isHealthy() {
 
-        double weightKg =
-                asDouble(
-                        features.get("weight_kg"),
-                        70d
-                );
+		MlHealthResponse response = health();
 
-        String smoking =
-                String.valueOf(
-                        features.getOrDefault(
-                                "smoking_status",
-                                "non-smoker"
-                        )
-                ).toLowerCase();
+		return response.getStatus() != null && !"unavailable".equalsIgnoreCase(response.getStatus())
+				&& Boolean.TRUE.equals(response.getModelLoaded());
+	}
 
-        String region =
-                String.valueOf(
-                        features.getOrDefault(
-                                "region",
-                                "south"
-                        )
-                ).toLowerCase();
+	private MlPredictionResult fallbackPrediction(Map<String, Object> features) {
 
-        double children =
-                asDouble(
-                        features.get("children"),
-                        0d
-                );
+		double age = asDouble(features.get("age"), 35d);
 
-        double basePremium = 2400d;
+		double bmi = asDouble(features.get("bmi"), 27d);
 
-        double ageFactor = age * 16d;
+		double heightCm = asDouble(features.get("height_cm"), 170d);
 
-        double bmiFactor =
-                Math.max(0d, bmi - 22d) * 150d;
+		double weightKg = asDouble(features.get("weight_kg"), 70d);
 
-        double heightWeightFactor =
-                Math.max(0d, 175d - heightCm) * 6d
-                        + Math.max(0d, weightKg - 70d) * 9d;
+		String smoking = String.valueOf(features.getOrDefault("smoking_status", "non-smoker")).toLowerCase();
 
-        double smokingFactor =
-                smoking.contains("smoker")
-                        && !smoking.contains("non")
-                        ? 2200d
-                        : 0d;
+		String region = String.valueOf(features.getOrDefault("region", "south")).toLowerCase();
 
-        double regionFactor =
-                switch (region) {
-                    case "north", "northwest", "northeast" -> 280d;
-                    case "west", "southwest" -> 220d;
-                    case "east", "southeast" -> 180d;
-                    default -> 150d;
-                };
+		double children = asDouble(features.get("children"), 0d);
 
-        double familyFactor =
-                Math.max(0d, children) * 120d;
+		double basePremium = 2400d;
 
-        double prediction =
-                roundCurrency(
-                        basePremium
-                                + ageFactor
-                                + bmiFactor
-                                + heightWeightFactor
-                                + smokingFactor
-                                + regionFactor
-                                + familyFactor
-                );
+		double ageFactor = age * 16d;
 
-        MlPredictionResult result =
-                new MlPredictionResult();
+		double bmiFactor = Math.max(0d, bmi - 22d) * 150d;
 
-        result.setPrediction(prediction);
+		double heightWeightFactor = Math.max(0d, 175d - heightCm) * 6d + Math.max(0d, weightKg - 70d) * 9d;
 
-        result.setMonthlyPrediction(prediction);
+		double smokingFactor = smoking.contains("smoker") && !smoking.contains("non") ? 2200d : 0d;
 
-        result.setAnnualPrediction(
-                prediction * 12d
-        );
+		double regionFactor = switch (region) {
+		case "north", "northwest", "northeast" -> 280d;
+		case "west", "southwest" -> 220d;
+		case "east", "southeast" -> 180d;
+		default -> 150d;
+		};
 
-        result.setProcessingTimeMs(1.0);
+		double familyFactor = Math.max(0d, children) * 120d;
 
-        result.setModelVersion(
-                "fallback-heuristic"
-        );
+		double prediction = roundCurrency(
+				basePremium + ageFactor + bmiFactor + heightWeightFactor + smokingFactor + regionFactor + familyFactor);
 
-        result.setSource("fallback_rule");
+		MlPredictionResult result = new MlPredictionResult();
 
-        result.setFallbackUsed(true);
+		result.setPrediction(prediction);
 
-        result.setBreakdown(
-                buildBreakdown(
-                        features,
-                        prediction,
-                        true
-                )
-        );
+		result.setMonthlyPrediction(prediction);
 
-        // =====================================================
-        // RAW FALLBACK RESPONSE
-        // =====================================================
+		result.setAnnualPrediction(prediction * 12d);
 
-        MlPredictionApiResponse fallbackResponse =
-                new MlPredictionApiResponse();
+		result.setProcessingTimeMs(1.0);
 
-        fallbackResponse.setSuccess(true);
+		result.setModelVersion("fallback-heuristic");
 
-        fallbackResponse.setPrediction(
-                prediction
-        );
+		result.setSource("fallback_rule");
 
-        fallbackResponse.setMonthlyPrediction(
-                prediction
-        );
+		result.setFallbackUsed(true);
 
-        fallbackResponse.setAnnualPrediction(
-                prediction * 12d
-        );
+		result.setBreakdown(buildBreakdown(features, prediction, true));
 
-        fallbackResponse.setModelVersion(
-                "fallback-heuristic"
-        );
+		// =====================================================
+		// RAW FALLBACK RESPONSE
+		// =====================================================
 
-        fallbackResponse.setBreakdown(
-                result.getBreakdown()
-        );
+		MlPredictionApiResponse fallbackResponse = new MlPredictionApiResponse();
 
-        // =====================================================
-        // MOCK INTERPRETABILITY
-        // =====================================================
+		fallbackResponse.setSuccess(true);
 
-        MlPredictionApiResponse.Interpretability interpretability =
-                new MlPredictionApiResponse.Interpretability();
+		fallbackResponse.setPrediction(prediction);
 
-        // ---------- LOCAL CONTRIBUTIONS ----------
+		fallbackResponse.setMonthlyPrediction(prediction);
 
-        List<MlPredictionApiResponse.FeatureContribution>
-                localContributions = List.of(
+		fallbackResponse.setAnnualPrediction(prediction * 12d);
 
-                contribution(
-                        "Age",
-                        roundCurrency(age * 0.8)
-                ),
+		fallbackResponse.setModelVersion("fallback-heuristic");
 
-                contribution(
-                        "BMI",
-                        roundCurrency(
-                                Math.max(0d, bmi - 22d) * 4
-                        )
-                ),
+		fallbackResponse.setBreakdown(result.getBreakdown());
 
-                contribution(
-                        "Smoking",
-                        smoking.contains("smoker")
-                                && !smoking.contains("non")
-                                ? 2200d
-                                : 0d
-                ),
+		// =====================================================
+		// MOCK INTERPRETABILITY
+		// =====================================================
 
-                contribution(
-                        "Weight",
-                        roundCurrency(
-                                Math.max(0d, weightKg - 70d) * 2
-                        )
-                ),
+		MlPredictionApiResponse.Interpretability interpretability = new MlPredictionApiResponse.Interpretability();
 
-                contribution(
-                        "Dependents",
-                        roundCurrency(children * 120d)
-                )
-        );
+		// ---------- LOCAL CONTRIBUTIONS ----------
 
-        // ---------- GLOBAL IMPORTANCE ----------
+		List<MlPredictionApiResponse.FeatureContribution> localContributions = List.of(
 
-        List<MlPredictionApiResponse.FeatureImportance>
-                globalImportance = List.of(
+				contribution("Age", roundCurrency(age * 0.8)),
 
-                importance("Smoking", 0.92),
+				contribution("BMI", roundCurrency(Math.max(0d, bmi - 22d) * 4)),
 
-                importance("BMI", 0.81),
+				contribution("Smoking", smoking.contains("smoker") && !smoking.contains("non") ? 2200d : 0d),
 
-                importance("Age", 0.74),
+				contribution("Weight", roundCurrency(Math.max(0d, weightKg - 70d) * 2)),
 
-                importance("Weight", 0.58),
+				contribution("Dependents", roundCurrency(children * 120d)));
 
-                importance("Region", 0.42),
+		// ---------- GLOBAL IMPORTANCE ----------
 
-                importance("Dependents", 0.33)
-        );
+		List<MlPredictionApiResponse.FeatureImportance> globalImportance = List.of(
 
-        // ---------- METRICS ----------
+				importance("Smoking", 0.92),
 
-        MlPredictionApiResponse.ModelMetrics metrics =
-                new MlPredictionApiResponse.ModelMetrics();
+				importance("BMI", 0.81),
 
-        metrics.setMae(112.4);
+				importance("Age", 0.74),
 
-        metrics.setRmse(245.8);
+				importance("Weight", 0.58),
 
-        metrics.setR2(0.91);
+				importance("Region", 0.42),
 
-        // ---------- COVERAGE ----------
+				importance("Dependents", 0.33));
 
-        MlPredictionApiResponse.InputCoverage coverage =
-                new MlPredictionApiResponse.InputCoverage();
 
-        coverage.setCoverageScore(1.0);
+		// ---------- ASSIGN ----------
 
-        coverage.setMissingFeatures(List.of());
+		interpretability.setLocalFeatureContributions(localContributions);
 
-        // ---------- ASSIGN ----------
+		interpretability.setGlobalFeatureImportance(globalImportance);
 
-        interpretability.setLocalFeatureContributions(
-                localContributions
-        );
+		fallbackResponse.setInterpretability(interpretability);
 
-        interpretability.setGlobalFeatureImportance(
-                globalImportance
-        );
+		result.setInterpretability(interpretability);
 
-        interpretability.setModelMetrics(metrics);
+		result.setRawMlResponse(fallbackResponse);
 
-        interpretability.setInputCoverage(coverage);
+		return result;
+	}
 
-        fallbackResponse.setInterpretability(
-                interpretability
-        );
+	private List<MlPredictionFactor> buildBreakdown(Map<String, Object> features, double prediction,
+			boolean heuristic) {
 
-        result.setInterpretability(
-                interpretability
-        );
+		double age = asDouble(features.get("age"), 35d);
 
-        result.setRawMlResponse(
-                fallbackResponse
-        );
+		double bmi = asDouble(features.get("bmi"), 27d);
 
-        return result;
-    }
+		double weightKg = asDouble(features.get("weight_kg"), 70d);
 
-    private List<MlPredictionFactor> buildBreakdown(
-            Map<String, Object> features,
-            double prediction,
-            boolean heuristic
-    ) {
+		String smoking = String.valueOf(features.getOrDefault("smoking_status", "non-smoker")).toLowerCase();
 
-        double age =
-                asDouble(
-                        features.get("age"),
-                        35d
-                );
+		String region = String.valueOf(features.getOrDefault("region", "south")).toLowerCase();
 
-        double bmi =
-                asDouble(
-                        features.get("bmi"),
-                        27d
-                );
+		double children = asDouble(features.get("children"), 0d);
 
-        double weightKg =
-                asDouble(
-                        features.get("weight_kg"),
-                        70d
-                );
+		double base = heuristic ? 2400d : Math.max(1400d, prediction * 0.45d);
 
-        String smoking =
-                String.valueOf(
-                        features.getOrDefault(
-                                "smoking_status",
-                                "non-smoker"
-                        )
-                ).toLowerCase();
+		double ageFactor = age * 16d;
 
-        String region =
-                String.valueOf(
-                        features.getOrDefault(
-                                "region",
-                                "south"
-                        )
-                ).toLowerCase();
+		double bmiFactor = Math.max(0d, bmi - 22d) * 150d;
 
-        double children =
-                asDouble(
-                        features.get("children"),
-                        0d
-                );
+		double healthFactor = Math.max(0d, weightKg - 70d) * 9d;
 
-        double base =
-                heuristic
-                        ? 2400d
-                        : Math.max(
-                        1400d,
-                        prediction * 0.45d
-                );
+		double smokingFactor = smoking.contains("smoker") && !smoking.contains("non") ? 2200d : 0d;
 
-        double ageFactor =
-                age * 16d;
+		double regionFactor = switch (region) {
+		case "north", "northwest", "northeast" -> 280d;
+		case "west", "southwest" -> 220d;
+		case "east", "southeast" -> 180d;
+		default -> 150d;
+		};
 
-        double bmiFactor =
-                Math.max(0d, bmi - 22d) * 150d;
+		double familyFactor = Math.max(0d, children) * 120d;
 
-        double healthFactor =
-                Math.max(0d, weightKg - 70d) * 9d;
+		return List.of(new MlPredictionFactor("Base Premium", roundCurrency(base)),
 
-        double smokingFactor =
-                smoking.contains("smoker")
-                        && !smoking.contains("non")
-                        ? 2200d
-                        : 0d;
+				new MlPredictionFactor("Age Factor", roundCurrency(ageFactor)),
 
-        double regionFactor =
-                switch (region) {
-                    case "north", "northwest", "northeast" -> 280d;
-                    case "west", "southwest" -> 220d;
-                    case "east", "southeast" -> 180d;
-                    default -> 150d;
-                };
+				new MlPredictionFactor("BMI Factor", roundCurrency(bmiFactor)),
 
-        double familyFactor =
-                Math.max(0d, children) * 120d;
+				new MlPredictionFactor("Health Factor", roundCurrency(healthFactor)),
 
-        return List.of(
-                new MlPredictionFactor(
-                        "Base Premium",
-                        roundCurrency(base)
-                ),
+				new MlPredictionFactor("Smoking Factor", roundCurrency(smokingFactor)),
 
-                new MlPredictionFactor(
-                        "Age Factor",
-                        roundCurrency(ageFactor)
-                ),
+				new MlPredictionFactor("Regional Factor", roundCurrency(regionFactor + familyFactor)));
+	}
 
-                new MlPredictionFactor(
-                        "BMI Factor",
-                        roundCurrency(bmiFactor)
-                ),
+	private MlPredictionApiResponse.FeatureContribution contribution(String feature, Double value) {
 
-                new MlPredictionFactor(
-                        "Health Factor",
-                        roundCurrency(healthFactor)
-                ),
+		MlPredictionApiResponse.FeatureContribution contribution = new MlPredictionApiResponse.FeatureContribution();
 
-                new MlPredictionFactor(
-                        "Smoking Factor",
-                        roundCurrency(smokingFactor)
-                ),
+		contribution.setFeature(feature);
 
-                new MlPredictionFactor(
-                        "Regional Factor",
-                        roundCurrency(
-                                regionFactor + familyFactor
-                        )
-                )
-        );
-    }
+		contribution.setContribution(value);
 
-    private MlPredictionApiResponse.FeatureContribution contribution(
-            String feature,
-            Double value
-    ) {
+		return contribution;
+	}
 
-        MlPredictionApiResponse.FeatureContribution contribution =
-                new MlPredictionApiResponse.FeatureContribution();
+	private MlPredictionApiResponse.FeatureImportance importance(String feature, Double value) {
 
-        contribution.setFeature(feature);
+		MlPredictionApiResponse.FeatureImportance importance = new MlPredictionApiResponse.FeatureImportance();
 
-        contribution.setContribution(value);
+		importance.setFeature(feature);
 
-        return contribution;
-    }
+		importance.setImportance(value);
 
-    private MlPredictionApiResponse.FeatureImportance importance(
-            String feature,
-            Double value
-    ) {
+		return importance;
+	}
 
-        MlPredictionApiResponse.FeatureImportance importance =
-                new MlPredictionApiResponse.FeatureImportance();
+	private double asDouble(Object value, double defaultValue) {
 
-        importance.setFeature(feature);
+		if (value == null) {
+			return defaultValue;
+		}
 
-        importance.setImportance(value);
+		if (value instanceof Number number) {
+			return number.doubleValue();
+		}
 
-        return importance;
-    }
+		try {
 
-    private double asDouble(
-            Object value,
-            double defaultValue
-    ) {
+			return Double.parseDouble(String.valueOf(value));
 
-        if (value == null) {
-            return defaultValue;
-        }
+		} catch (NumberFormatException exception) {
 
-        if (value instanceof Number number) {
-            return number.doubleValue();
-        }
+			return defaultValue;
+		}
+	}
 
-        try {
-
-            return Double.parseDouble(
-                    String.valueOf(value)
-            );
-
-        } catch (NumberFormatException exception) {
-
-            return defaultValue;
-        }
-    }
-
-    private double roundCurrency(
-            double value
-    ) {
-        return Math.round(value);
-    }
+	private double roundCurrency(double value) {
+		return Math.round(value);
+	}
 }

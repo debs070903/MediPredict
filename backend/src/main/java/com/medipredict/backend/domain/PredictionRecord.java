@@ -1,4 +1,4 @@
-package com.medipredict.backend.domain;
+ package com.medipredict.backend.domain;
 
 import java.time.Instant;
 
