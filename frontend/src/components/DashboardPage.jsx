@@ -316,11 +316,6 @@ export function DashboardPage({
     predictionResult?.mlResponse?.interpretability?.globalFeatureImportance ||
     [];
 
-  const modelMetrics =
-    predictionResult?.mlResponse?.interpretability?.modelMetrics;
-
-  const inputCoverage =
-    predictionResult?.mlResponse?.interpretability?.inputCoverage;
   const annualPremium =
     (summary?.latestPrediction?.annualPremium ||
       predictionResult?.annualPremium ||
@@ -803,7 +798,7 @@ export function DashboardPage({
                             <TableCell>{row.region || "-"}</TableCell>
                             <TableCell>{row.smokingStatus || "-"}</TableCell>
                             <TableCell className="text-right">
-                              {formatCurrency(row.monthlyPremium)}
+                              {formatCurrency(row.monthlyPremium * usdToInrRate)}
                             </TableCell>
                           </TableRow>
                         ))
