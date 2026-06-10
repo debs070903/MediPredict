@@ -798,7 +798,9 @@ export function DashboardPage({
                             <TableCell>{row.region || "-"}</TableCell>
                             <TableCell>{row.smokingStatus || "-"}</TableCell>
                             <TableCell className="text-right">
-                              {formatCurrency(row.monthlyPremium * usdToInrRate)}
+                              {formatCurrency(
+                                row.monthlyPremium * usdToInrRate
+                              )}
                             </TableCell>
                           </TableRow>
                         ))
@@ -1488,7 +1490,7 @@ export function DashboardPage({
                           </div>
 
                           <div className="h-[380px]">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height={350}>
                               {(() => {
                                 const totalContribution = pieData.reduce(
                                   (sum, item) => sum + Number(item.value || 0),
@@ -1496,15 +1498,29 @@ export function DashboardPage({
                                 );
 
                                 const normalizedPieData = pieData.map(
-                                  (item) => ({
-                                    ...item,
-                                    premiumValue:
+                                  (item) => {
+                                    const premiumValue =
                                       totalContribution > 0
                                         ? (Number(item.value || 0) /
                                             totalContribution) *
                                           monthlyPremium
-                                        : 0,
-                                  })
+                                        : 0;
+
+                                    const percentage =
+                                      totalContribution > 0
+                                        ? (
+                                            (Number(item.value || 0) /
+                                              totalContribution) *
+                                            100
+                                          ).toFixed(0)
+                                        : 0;
+
+                                    return {
+                                      ...item,
+                                      premiumValue,
+                                      percentage,
+                                    };
+                                  }
                                 );
 
                                 return (
@@ -1513,13 +1529,12 @@ export function DashboardPage({
                                       data={normalizedPieData}
                                       dataKey="premiumValue"
                                       cx="50%"
-                                      cy="50%"
-                                      outerRadius={120}
-                                      label={({ name, premiumValue }) =>
-                                        `${name}: ${formatCurrency(
-                                          Number(premiumValue || 0)
-                                        )}`
-                                      }
+                                      cy="42%"
+                                      innerRadius="45%"
+                                      outerRadius="70%"
+                                      paddingAngle={2}
+                                      label={false}
+                                      labelLine={false}
                                     >
                                       {normalizedPieData.map((entry, index) => (
                                         <Cell
@@ -1530,10 +1545,36 @@ export function DashboardPage({
                                     </Pie>
 
                                     <Tooltip
-                                      formatter={(value) => [
+                                      formatter={(value, name, props) => [
                                         formatCurrency(Number(value || 0)),
-                                        "Premium Contribution",
+                                        props.payload.name,
                                       ]}
+                                    />
+
+                                    <Legend
+                                      verticalAlign="bottom"
+                                      align="center"
+                                      layout="horizontal"
+                                      iconType="circle"
+                                      wrapperStyle={{
+                                        fontSize: "12px",
+                                        paddingTop: "10px",
+                                        lineHeight: "20px",
+                                      }}
+                                      formatter={(value, entry, index) => {
+                                        const item = normalizedPieData[index];
+
+                                        return (
+                                          <span
+                                            style={{
+                                              color: "#64748b",
+                                              fontSize: "12px",
+                                            }}
+                                          >
+                                            {value} ({item.percentage}%)
+                                          </span>
+                                        );
+                                      }}
                                     />
                                   </PieChart>
                                 );
