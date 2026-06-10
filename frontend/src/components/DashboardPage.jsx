@@ -656,22 +656,22 @@ export function DashboardPage({
                           {pieData.map((item, index) => {
                             const totalContribution = pieData.reduce(
                               (sum, current) =>
-                                sum + Number(current.value || 0),
+                                sum + Math.abs(Number(current.value || 0)),
                               0
                             );
 
+                            const absValue = Math.abs(Number(item.value || 0));
+
                             const contributionValue =
                               totalContribution > 0
-                                ? (Number(item.value || 0) /
-                                    totalContribution) *
-                                  monthlyPremium
+                                ? (absValue / totalContribution) *
+                                  Number(monthlyPremium || 0)
                                 : 0;
 
                             const percentage =
-                              monthlyPremium > 0
+                              totalContribution > 0
                                 ? (
-                                    (contributionValue /
-                                      Number(monthlyPremium || 1)) *
+                                    (absValue / totalContribution) *
                                     100
                                   ).toFixed(1)
                                 : 0;
@@ -700,7 +700,10 @@ export function DashboardPage({
                                   <div
                                     className="h-full rounded-full transition-all duration-700"
                                     style={{
-                                      width: `${Math.min(percentage, 100)}%`,
+                                      width: `${Math.min(
+                                        Number(percentage),
+                                        100
+                                      )}%`,
                                       background: COLORS[index % COLORS.length],
                                     }}
                                   />
@@ -1493,24 +1496,27 @@ export function DashboardPage({
                             <ResponsiveContainer width="100%" height={350}>
                               {(() => {
                                 const totalContribution = pieData.reduce(
-                                  (sum, item) => sum + Number(item.value || 0),
+                                  (sum, item) =>
+                                    sum + Math.abs(Number(item.value || 0)),
                                   0
                                 );
 
                                 const normalizedPieData = pieData.map(
                                   (item) => {
+                                    const absValue = Math.abs(
+                                      Number(item.value || 0)
+                                    );
+
                                     const premiumValue =
                                       totalContribution > 0
-                                        ? (Number(item.value || 0) /
-                                            totalContribution) *
-                                          monthlyPremium
+                                        ? (absValue / totalContribution) *
+                                          Number(monthlyPremium || 0)
                                         : 0;
 
                                     const percentage =
                                       totalContribution > 0
                                         ? (
-                                            (Number(item.value || 0) /
-                                              totalContribution) *
+                                            (absValue / totalContribution) *
                                             100
                                           ).toFixed(0)
                                         : 0;
@@ -1535,10 +1541,12 @@ export function DashboardPage({
                                       paddingAngle={2}
                                       label={false}
                                       labelLine={false}
+                                      isAnimationActive={true}
+                                      animationDuration={800}
                                     >
                                       {normalizedPieData.map((entry, index) => (
                                         <Cell
-                                          key={entry.name}
+                                          key={`${entry.name}-${index}`}
                                           fill={COLORS[index % COLORS.length]}
                                         />
                                       ))}
@@ -1571,7 +1579,7 @@ export function DashboardPage({
                                               fontSize: "12px",
                                             }}
                                           >
-                                            {value} ({item.percentage}%)
+                                            {value} ({item?.percentage}%)
                                           </span>
                                         );
                                       }}
@@ -1631,7 +1639,8 @@ export function DashboardPage({
 
                       {/* ================= INTERPRETABILITY SECTION ================= */}
 
-                      {localContributions.length > 0 && (
+                      {(localContributions.length > 0 ||
+                        globalImportance.length > 0) && (
                         <div className="space-y-8">
                           {/* SECTION HEADER */}
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -1648,79 +1657,93 @@ export function DashboardPage({
                           </div>
 
                           {/* LOCAL CONTRIBUTIONS */}
-                          <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
-                            <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
-                              <CardTitle>Local Feature Contributions</CardTitle>
+                          {localContributions.length > 0 && (
+                            <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
+                              <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
+                                <CardTitle>
+                                  Local Feature Contributions
+                                </CardTitle>
 
-                              <CardDescription>
-                                Influence of each feature on the current
-                                prediction
-                              </CardDescription>
-                            </CardHeader>
+                                <CardDescription>
+                                  Influence of each feature on the current
+                                  prediction
+                                </CardDescription>
+                              </CardHeader>
 
-                            <CardContent className="pt-6">
-                              <div className="h-[380px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <BarChart data={localContributions}>
-                                    <CartesianGrid strokeDasharray="3 3" />
+                              <CardContent className="pt-6">
+                                <div className="h-[380px]">
+                                  <ResponsiveContainer
+                                    width="100%"
+                                    height="100%"
+                                  >
+                                    <BarChart data={localContributions}>
+                                      <CartesianGrid strokeDasharray="3 3" />
 
-                                    <XAxis
-                                      dataKey="feature"
-                                      tick={{ fontSize: 12 }}
-                                    />
+                                      <XAxis
+                                        dataKey="feature"
+                                        tick={{ fontSize: 12 }}
+                                      />
 
-                                    <YAxis />
+                                      <YAxis />
 
-                                    <Tooltip />
+                                      <Tooltip />
 
-                                    <Bar
-                                      dataKey="contribution"
-                                      fill="#005BEA"
-                                      radius={[8, 8, 0, 0]}
-                                    />
-                                  </BarChart>
-                                </ResponsiveContainer>
-                              </div>
-                            </CardContent>
-                          </Card>
+                                      <Bar
+                                        dataKey="contribution"
+                                        fill="#005BEA"
+                                        radius={[8, 8, 0, 0]}
+                                      />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
 
                           {/* GLOBAL IMPORTANCE */}
-                          <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
-                            <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
-                              <CardTitle>Global Feature Importance</CardTitle>
+                          {globalImportance.length > 0 && (
+                            <Card className="rounded-2xl border-0 shadow-md overflow-hidden">
+                              <CardHeader className="bg-gradient-to-r from-[#005BEA]/5 to-[#00C6FB]/5">
+                                <CardTitle>Global Feature Importance</CardTitle>
 
-                              <CardDescription>
-                                Overall contribution of features learned by the
-                                model
-                              </CardDescription>
-                            </CardHeader>
+                                <CardDescription>
+                                  Overall contribution of features learned by
+                                  the model
+                                </CardDescription>
+                              </CardHeader>
 
-                            <CardContent className="space-y-5 pt-6">
-                              {globalImportance.map((item) => (
-                                <div key={item.feature} className="space-y-2">
-                                  <div className="flex items-center justify-between text-sm font-medium">
-                                    <span>{item.feature}</span>
+                              <CardContent className="space-y-5 pt-6">
+                                {globalImportance.map((item, index) => (
+                                  <div
+                                    key={`${item.feature}-${index}`}
+                                    className="space-y-2"
+                                  >
+                                    <div className="flex items-center justify-between text-sm font-medium">
+                                      <span>{item.feature}</span>
 
-                                    <span className="text-[#005BEA]">
-                                      {Number(item.importance || 0).toFixed(3)}
-                                    </span>
+                                      <span className="text-[#005BEA]">
+                                        {Number(item.importance || 0).toFixed(
+                                          3
+                                        )}
+                                      </span>
+                                    </div>
+
+                                    <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-gradient-to-r from-[#005BEA] to-[#00C6FB] transition-all duration-700"
+                                        style={{
+                                          width: `${Math.min(
+                                            Number(item.importance || 0) * 100,
+                                            100
+                                          )}%`,
+                                        }}
+                                      />
+                                    </div>
                                   </div>
-
-                                  <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-gradient-to-r from-[#005BEA] to-[#00C6FB]"
-                                      style={{
-                                        width: `${Math.min(
-                                          Number(item.importance || 0) * 100,
-                                          100
-                                        )}%`,
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              ))}
-                            </CardContent>
-                          </Card>
+                                ))}
+                              </CardContent>
+                            </Card>
+                          )}
                         </div>
                       )}
                     </div>

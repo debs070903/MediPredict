@@ -53,6 +53,23 @@ public class PredictionService {
 
         MlPredictionResult mlResult = mlServiceClient.predict(features, false);
 
+        try {
+            System.out.println(
+                    "ML RESULT = " +
+                            objectMapper.writeValueAsString(mlResult)
+            );
+
+            System.out.println(
+                    "RAW ML RESPONSE = " +
+                            objectMapper.writeValueAsString(
+                                    mlResult.getRawMlResponse()
+                            )
+            );
+
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+
         PredictionRecord record = new PredictionRecord();
         record.setUser(user);
         record.setAge(request.getAge());
