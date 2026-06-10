@@ -5,6 +5,8 @@
 
 # Backend (Spring Boot)
 backend/target/
+backend/data/*.mv.db
+backend/data/*.trace.db
 *.log
 .env
 application-local.yml
