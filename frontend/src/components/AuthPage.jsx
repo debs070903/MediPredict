@@ -324,19 +324,6 @@ export function AuthPage({
                   {/* OPTIONS */}
                   <div className="flex items-center justify-between text-sm">
 
-                    <label className="flex items-center gap-2 cursor-pointer">
-
-                      <input
-                        type="checkbox"
-                        className="rounded cursor-pointer"
-                      />
-
-                      <span className="text-gray-600">
-                        Remember me
-                      </span>
-
-                    </label>
-
                     <a
                       href="#"
                       className="text-[#005BEA] hover:underline"
