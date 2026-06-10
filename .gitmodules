@@ -1,0 +1,3 @@
+[submodule "ml-microservice"]
+	path = ml-microservice
+	url = https://github.com/Sukalyan2003/ml-microservice.git
