@@ -121,16 +121,46 @@ public class MlPredictionApiResponse {
 
     public static class Interpretability {
 
+        private Double baseValue;
+
+        private Double annualPrediction;
+
+        private Double monthlyPrediction;
+
         private List<FeatureContribution> localFeatureContributions;
 
         private List<FeatureImportance> globalFeatureImportance;
 
+        public Double getBaseValue() {
+            return baseValue;
+        }
+
+        public void setBaseValue(Double baseValue) {
+            this.baseValue = baseValue;
+        }
+
+        public Double getAnnualPrediction() {
+            return annualPrediction;
+        }
+
+        public void setAnnualPrediction(Double annualPrediction) {
+            this.annualPrediction = annualPrediction;
+        }
+
+        public Double getMonthlyPrediction() {
+            return monthlyPrediction;
+        }
+
+        public void setMonthlyPrediction(Double monthlyPrediction) {
+            this.monthlyPrediction = monthlyPrediction;
+        }
 
         public List<FeatureContribution> getLocalFeatureContributions() {
             return localFeatureContributions;
         }
 
-        public void setLocalFeatureContributions(List<FeatureContribution> localFeatureContributions) {
+        public void setLocalFeatureContributions(
+                List<FeatureContribution> localFeatureContributions) {
             this.localFeatureContributions = localFeatureContributions;
         }
 
@@ -138,10 +168,10 @@ public class MlPredictionApiResponse {
             return globalFeatureImportance;
         }
 
-        public void setGlobalFeatureImportance(List<FeatureImportance> globalFeatureImportance) {
+        public void setGlobalFeatureImportance(
+                List<FeatureImportance> globalFeatureImportance) {
             this.globalFeatureImportance = globalFeatureImportance;
         }
-
     }
 
     public static class FeatureContribution {

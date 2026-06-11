@@ -52,11 +52,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+  ResponsiveContainer
 } from "recharts";
 import { toast } from "sonner";
 import { api, formatCurrency, formatShortDate } from "../services/api";
@@ -148,24 +144,6 @@ function getInitials(name) {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "MP"
   );
-}
-
-function buildPieData(breakdown) {
-  if (Array.isArray(breakdown) && breakdown.length > 0) {
-    return breakdown.map((item) => ({
-      name: item.name,
-      value: Number(item.value || 0),
-    }));
-  }
-
-  return [
-    { name: "Base Premium", value: 800 },
-    { name: "Age Factor", value: 1000 },
-    { name: "Health Factor", value: 1200 },
-    { name: "BMI Factor", value: 800 },
-    { name: "Smoking Factor", value: 600 },
-    { name: "Regional Factor", value: 400 },
-  ];
 }
 
 function buildMonthlyChartData(monthlyTrend) {
@@ -299,18 +277,38 @@ export function DashboardPage({
   );
 
   const historyRows = summary?.recentPredictions || [];
-  const pieData = useMemo(
-    () => buildPieData(predictionResult?.breakdown),
-    [predictionResult]
-  );
   useEffect(() => {
     console.log("Prediction Result:", predictionResult);
     console.log("Breakdown:", predictionResult?.breakdown);
   }, [predictionResult]);
 
-  const localContributions =
+  const localContributions = (
     predictionResult?.mlResponse?.interpretability?.localFeatureContributions ||
-    [];
+    []
+  )
+    .filter(
+      (item) =>
+        item.contribution !== null &&
+        item.contribution !== undefined &&
+        item.contribution !== 0
+    )
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+
+  const baseValue =
+    predictionResult?.mlResponse?.interpretability?.baseValue || 0;
+
+  const contributionLedger = localContributions.map((item) => ({
+    feature: item.feature.replaceAll("_", " "),
+    contribution: Number(item.contribution || 0),
+  }));
+
+  const positiveContributions = contributionLedger.filter(
+    (item) => item.contribution >= 1
+  );
+
+  const negativeContributions = contributionLedger.filter(
+    (item) => item.contribution <= -1
+  );
 
   const globalImportance =
     predictionResult?.mlResponse?.interpretability?.globalFeatureImportance ||
@@ -478,7 +476,7 @@ export function DashboardPage({
   }
 
   return (
-    <div className="flex h-screen bg-[#F5F7FA] overflow-hidden">
+    <div className="flex bg-[#F5F7FA] overflow-hidden">
       {isMobileSidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -548,7 +546,7 @@ export function DashboardPage({
         </div>
       </aside>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         <header className="bg-white border-b sticky top-0 z-10">
           <div className="flex justify-between px-6 py-4">
             <div className="flex items-center gap-3">
@@ -640,97 +638,96 @@ export function DashboardPage({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Most Recent Cost Breakdown</CardTitle>
+                    <CardTitle>Top Premium Drivers</CardTitle>
 
                     <CardDescription>
-                      Detailed contribution of factors to your latest monthly
-                      premium
+                      Factors that had the strongest impact on your most recent
+                      premium estimate
                     </CardDescription>
                   </CardHeader>
 
                   <CardContent>
-                    {pieData.length > 0 ? (
-                      <div className="space-y-6">
-                        {/* BREAKDOWN */}
-                        <div className="space-y-5">
-                          {pieData.map((item, index) => {
-                            const totalContribution = pieData.reduce(
-                              (sum, current) =>
-                                sum + Math.abs(Number(current.value || 0)),
-                              0
-                            );
+                    {localContributions.length > 0 ? (
+                      <div className="space-y-5">
+                        {localContributions.slice(0, 10).map((item, index) => {
+                          const contribution = Number(item.contribution || 0);
 
-                            const absValue = Math.abs(Number(item.value || 0));
+                          const maxContribution = Math.max(
+                            ...localContributions.map((x) =>
+                              Math.abs(x.contribution)
+                            )
+                          );
 
-                            const contributionValue =
-                              totalContribution > 0
-                                ? (absValue / totalContribution) *
-                                  Number(monthlyPremium || 0)
-                                : 0;
+                          const percentage =
+                            maxContribution > 0
+                              ? (Math.abs(contribution) / maxContribution) * 100
+                              : 0;
 
-                            const percentage =
-                              totalContribution > 0
-                                ? (
-                                    (absValue / totalContribution) *
-                                    100
-                                  ).toFixed(1)
-                                : 0;
+                          return (
+                            <div
+                              key={`${item.feature}-${index}`}
+                              className="space-y-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-800 capitalize">
+                                    {item.feature.replaceAll("_", " ")}
+                                  </p>
 
-                            return (
-                              <div key={item.name} className="space-y-2">
-                                {/* LABEL + VALUE */}
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="font-medium text-gray-800">
-                                      {item.name}
-                                    </p>
-
-                                    <p className="text-xs text-gray-500">
-                                      {percentage}% contribution
-                                    </p>
-                                  </div>
-
-                                  <p className="font-semibold text-[#005BEA]">
-                                    {formatCurrency(contributionValue)}
+                                  <p className="text-xs text-gray-500">
+                                    {contribution > 0
+                                      ? "Increased premium"
+                                      : "Reduced premium"}
                                   </p>
                                 </div>
 
-                                {/* PROGRESS BAR */}
-                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-700"
-                                    style={{
-                                      width: `${Math.min(
-                                        Number(percentage),
-                                        100
-                                      )}%`,
-                                      background: COLORS[index % COLORS.length],
-                                    }}
-                                  />
-                                </div>
+                                <p
+                                  className={`font-semibold ${
+                                    contribution > 0
+                                      ? "text-red-600"
+                                      : "text-green-600"
+                                  }`}
+                                >
+                                  {contribution > 0 ? "+" : ""}
+                                  {formatCurrency(
+                                    (Math.abs(contribution) / 12) * usdToInrRate
+                                  )}
+                                </p>
                               </div>
-                            );
-                          })}
-                        </div>
 
-                        {/* SUMMARY */}
+                              <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-700 ${
+                                    contribution > 0
+                                      ? "bg-red-500"
+                                      : "bg-green-500"
+                                  }`}
+                                  style={{
+                                    width: `${percentage}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+
                         <div className="rounded-xl border bg-[#F5F7FA] p-4">
                           <p className="font-semibold text-[#005BEA] mb-2">
-                            Premium Summary
+                            Model Explanation
                           </p>
 
                           <p className="text-sm text-gray-600 leading-relaxed">
-                            Your premium is primarily influenced by lifestyle,
-                            BMI, age, and regional healthcare costs. Maintaining
-                            healthier habits can help reduce long-term insurance
-                            premiums.
+                            Green factors reduced your premium, while red
+                            factors increased it. The magnitude reflects how
+                            strongly each feature influenced the machine
+                            learning model's prediction.
                           </p>
                         </div>
                       </div>
                     ) : (
                       <div className="rounded-lg border border-dashed p-10 text-center text-sm text-gray-500">
-                        Generate a premium prediction to view the latest cost
-                        breakdown.
+                        Generate a premium prediction to view the premium
+                        drivers.
                       </div>
                     )}
                   </CardContent>
@@ -739,36 +736,51 @@ export function DashboardPage({
                 <Card>
                   <CardHeader>
                     <CardTitle>Prediction Snapshot</CardTitle>
+
                     <CardDescription>
                       Latest result from the ML service or fallback logic
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="rounded-xl bg-gradient-to-br from-[#005BEA]/10 to-[#00C6FB]/10 p-4">
-                      <p className="text-sm text-gray-600 mb-1">
-                        Current estimate
-                      </p>
-                      <p className="text-3xl font-bold text-[#005BEA]">
-                        {formatCurrency(monthlyPremium)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Processing time:{" "}
-                        {predictionResult?.processingTimeMs || 0} ms
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Sparkles className="h-4 w-4 text-[#005BEA]" />
-                      {currentFallback
-                        ? "Fallback estimate generated locally"
-                        : "Prediction generated from ML microservice"}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock3 className="h-4 w-4 text-[#005BEA]" />
-                      Model version:{" "}
-                      {predictionResult?.mlModelVersion ||
-                        summary?.mlModelVersion ||
-                        "unknown"}
-                    </div>
+
+                  <CardContent>
+                    {predictionResult ? (
+                      <div className="space-y-4">
+                        <div className="rounded-xl bg-gradient-to-br from-[#005BEA]/10 to-[#00C6FB]/10 p-4">
+                          <p className="text-sm text-gray-600 mb-1">
+                            Current estimate
+                          </p>
+
+                          <p className="text-3xl font-bold text-[#005BEA]">
+                            {formatCurrency(monthlyPremium)}
+                          </p>
+
+                          <p className="text-xs text-gray-500 mt-2">
+                            Processing time:{" "}
+                            {predictionResult?.processingTimeMs || 0} ms
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Sparkles className="h-4 w-4 text-[#005BEA]" />
+                          {currentFallback
+                            ? "Fallback estimate generated locally"
+                            : "Prediction generated from ML microservice"}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Clock3 className="h-4 w-4 text-[#005BEA]" />
+                          Model version:{" "}
+                          {predictionResult?.mlModelVersion ||
+                            summary?.mlModelVersion ||
+                            "unknown"}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed p-10 text-center text-sm text-gray-500">
+                        No prediction available yet. Generate your first premium
+                        estimate to view the latest prediction snapshot.
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1480,114 +1492,106 @@ export function DashboardPage({
                     <div className="space-y-10">
                       {/* TOP SECTION */}
                       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
-                        {/* PIE CHART */}
+                        {/* PREMIUM LEDGER */}
+
                         <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                          <div className="mb-4">
+                          <div className="mb-5">
                             <h3 className="text-xl font-semibold text-[#005BEA]">
-                              Premium Breakdown
+                              Premium Impact Analysis
                             </h3>
 
                             <p className="text-sm text-gray-500 mt-1">
-                              Distribution of premium contribution factors
+                              See how different factors increased or reduced
+                              your predicted monthly premium
                             </p>
                           </div>
 
-                          <div className="h-[380px]">
-                            <ResponsiveContainer width="100%" height={350}>
-                              {(() => {
-                                const totalContribution = pieData.reduce(
-                                  (sum, item) =>
-                                    sum + Math.abs(Number(item.value || 0)),
-                                  0
-                                );
+                          <div className="space-y-4">
+                            {/* BASE MONTHLY PREMIUM */}
 
-                                const normalizedPieData = pieData.map(
-                                  (item) => {
-                                    const absValue = Math.abs(
-                                      Number(item.value || 0)
-                                    );
+                            <div className="flex justify-between items-center p-3 rounded-lg bg-blue-50 border">
+                              <span className="font-semibold">
+                                Base Monthly Premium
+                              </span>
 
-                                    const premiumValue =
-                                      totalContribution > 0
-                                        ? (absValue / totalContribution) *
-                                          Number(monthlyPremium || 0)
-                                        : 0;
+                              <span className="font-bold text-[#005BEA]">
+                                {formatCurrency(
+                                  ((baseValue || 0) / 12) * usdToInrRate
+                                )}
+                              </span>
+                            </div>
 
-                                    const percentage =
-                                      totalContribution > 0
-                                        ? (
-                                            (absValue / totalContribution) *
-                                            100
-                                          ).toFixed(0)
-                                        : 0;
+                            {/* FACTORS INCREASING PREMIUM */}
 
-                                    return {
-                                      ...item,
-                                      premiumValue,
-                                      percentage,
-                                    };
-                                  }
-                                );
+                            {positiveContributions.length > 0 && (
+                              <>
+                                <h4 className="font-semibold text-red-600">
+                                  Factors Increasing Premium
+                                </h4>
 
-                                return (
-                                  <PieChart>
-                                    <Pie
-                                      data={normalizedPieData}
-                                      dataKey="premiumValue"
-                                      cx="50%"
-                                      cy="42%"
-                                      innerRadius="45%"
-                                      outerRadius="70%"
-                                      paddingAngle={2}
-                                      label={false}
-                                      labelLine={false}
-                                      isAnimationActive={true}
-                                      animationDuration={800}
-                                    >
-                                      {normalizedPieData.map((entry, index) => (
-                                        <Cell
-                                          key={`${entry.name}-${index}`}
-                                          fill={COLORS[index % COLORS.length]}
-                                        />
-                                      ))}
-                                    </Pie>
+                                {positiveContributions.map((item, index) => (
+                                  <div
+                                    key={`${item.feature}-${index}`}
+                                    className="flex justify-between border-b pb-2"
+                                  >
+                                    <span className="capitalize">
+                                      {item.feature}
+                                    </span>
 
-                                    <Tooltip
-                                      formatter={(value, name, props) => [
-                                        formatCurrency(Number(value || 0)),
-                                        props.payload.name,
-                                      ]}
-                                    />
+                                    <span className="font-bold text-red-600">
+                                      +
+                                      {formatCurrency(
+                                        (item.contribution / 12) * usdToInrRate
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </>
+                            )}
 
-                                    <Legend
-                                      verticalAlign="bottom"
-                                      align="center"
-                                      layout="horizontal"
-                                      iconType="circle"
-                                      wrapperStyle={{
-                                        fontSize: "12px",
-                                        paddingTop: "10px",
-                                        lineHeight: "20px",
-                                      }}
-                                      formatter={(value, entry, index) => {
-                                        const item = normalizedPieData[index];
+                            {/* FACTORS REDUCING PREMIUM */}
 
-                                        return (
-                                          <span
-                                            style={{
-                                              color: "#64748b",
-                                              fontSize: "12px",
-                                            }}
-                                          >
-                                            {value} ({item?.percentage}%)
-                                          </span>
-                                        );
-                                      }}
-                                    />
-                                  </PieChart>
-                                );
-                              })()}
-                            </ResponsiveContainer>
+                            {negativeContributions.length > 0 && (
+                              <>
+                                <h4 className="font-semibold text-green-600 pt-4">
+                                  Factors Reducing Premium
+                                </h4>
+
+                                {negativeContributions.map((item, index) => (
+                                  <div
+                                    key={`${item.feature}-${index}`}
+                                    className="flex justify-between border-b pb-2"
+                                  >
+                                    <span className="capitalize">
+                                      {item.feature}
+                                    </span>
+
+                                    <span className="font-bold text-green-600">
+                                      {formatCurrency(
+                                        (item.contribution / 12) * usdToInrRate
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+
+                            {/* FINAL MONTHLY PREMIUM */}
+
+                            <div className="border-t pt-5 mt-5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-lg font-bold">
+                                  Final Monthly Premium
+                                </span>
+
+                                <span className="text-2xl font-bold text-[#005BEA]">
+                                  {formatCurrency(
+                                    predictionResult.monthlyPremium *
+                                      usdToInrRate
+                                  )}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
