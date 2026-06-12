@@ -4,6 +4,7 @@
 .vscode/
 
 # Backend (Spring Boot)
+backend/bin/
 backend/target/
 backend/data/*.mv.db
 backend/data/*.trace.db
