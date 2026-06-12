@@ -46,13 +46,21 @@ import {
 } from "./ui/table";
 
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "./ui/dialog";
+
+import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from "recharts";
 import { toast } from "sonner";
 import { api, formatCurrency, formatShortDate } from "../services/api";
@@ -171,6 +179,8 @@ export function DashboardPage({
   const [errorMessage, setErrorMessage] = useState("");
   const [summary, setSummary] = useState(null);
   const [predictionResult, setPredictionResult] = useState(null);
+  const [selectedPrediction, setSelectedPrediction] = useState(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(DEFAULT_PROFILE);
   const [usdToInrRate, setUsdToInrRate] = useState(85);
   const [formData, setFormData] = useState(DEFAULT_FORM);
@@ -282,20 +292,17 @@ export function DashboardPage({
     console.log("Breakdown:", predictionResult?.breakdown);
   }, [predictionResult]);
 
+  const latestPrediction = predictionResult || summary?.latestPrediction;
+
   const localContributions = (
-    predictionResult?.mlResponse?.interpretability?.localFeatureContributions ||
+    latestPrediction?.mlResponse?.interpretability?.localFeatureContributions ||
     []
   )
-    .filter(
-      (item) =>
-        item.contribution !== null &&
-        item.contribution !== undefined &&
-        item.contribution !== 0
-    )
+    .filter((item) => Math.abs(Number(item.contribution || 0)) >= 1)
     .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
 
   const baseValue =
-    predictionResult?.mlResponse?.interpretability?.baseValue || 0;
+    latestPrediction?.mlResponse?.interpretability?.baseValue || 0;
 
   const contributionLedger = localContributions.map((item) => ({
     feature: item.feature.replaceAll("_", " "),
@@ -311,7 +318,7 @@ export function DashboardPage({
   );
 
   const globalImportance =
-    predictionResult?.mlResponse?.interpretability?.globalFeatureImportance ||
+    latestPrediction?.mlResponse?.interpretability?.globalFeatureImportance ||
     [];
 
   const annualPremium =
@@ -322,13 +329,35 @@ export function DashboardPage({
     (predictionResult?.monthlyPremium ||
       summary?.latestPrediction?.monthlyPremium ||
       0) * (usdToInrRate || 85);
-  const currentFallback = Boolean(predictionResult?.fallbackUsed);
+  const currentFallback = Boolean(latestPrediction?.fallbackUsed);
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", id: "dashboard" },
     { icon: TrendingUp, label: "Premium Predictor", id: "premium" },
     { icon: Settings, label: "Settings", id: "settings" },
   ];
+
+  const handlePredictionClick = async (id) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/predictions/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      setSelectedPrediction(data);
+
+      setDetailsOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load prediction details");
+    }
+  };
 
   const handleLogout = () => {
     setPredictionResult(null);
@@ -649,7 +678,7 @@ export function DashboardPage({
                   <CardContent>
                     {localContributions.length > 0 ? (
                       <div className="space-y-5">
-                        {localContributions.slice(0, 10).map((item, index) => {
+                        {localContributions.map((item, index) => {
                           const contribution = Number(item.contribution || 0);
 
                           const maxContribution = Math.max(
@@ -688,7 +717,7 @@ export function DashboardPage({
                                       : "text-green-600"
                                   }`}
                                 >
-                                  {contribution > 0 ? "+" : ""}
+                                  {contribution > 0 ? "+" : "-"}
                                   {formatCurrency(
                                     (Math.abs(contribution) / 12) * usdToInrRate
                                   )}
@@ -743,7 +772,7 @@ export function DashboardPage({
                   </CardHeader>
 
                   <CardContent>
-                    {predictionResult ? (
+                    {latestPrediction ? (
                       <div className="space-y-4">
                         <div className="rounded-xl bg-gradient-to-br from-[#005BEA]/10 to-[#00C6FB]/10 p-4">
                           <p className="text-sm text-gray-600 mb-1">
@@ -756,7 +785,7 @@ export function DashboardPage({
 
                           <p className="text-xs text-gray-500 mt-2">
                             Processing time:{" "}
-                            {predictionResult?.processingTimeMs || 0} ms
+                            {latestPrediction?.processingTimeMs || 0} ms
                           </p>
                         </div>
 
@@ -770,7 +799,7 @@ export function DashboardPage({
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Clock3 className="h-4 w-4 text-[#005BEA]" />
                           Model version:{" "}
-                          {predictionResult?.mlModelVersion ||
+                          {latestPrediction?.mlModelVersion ||
                             summary?.mlModelVersion ||
                             "unknown"}
                         </div>
@@ -805,7 +834,11 @@ export function DashboardPage({
                     <TableBody>
                       {historyRows.length > 0 ? (
                         historyRows.map((row) => (
-                          <TableRow key={row.id}>
+                          <TableRow
+                            key={row.id}
+                            onClick={() => handlePredictionClick(row.id)}
+                            className="cursor-pointer hover:bg-slate-50"
+                          >
                             <TableCell>{row.id}</TableCell>
                             <TableCell>
                               {formatShortDate(row.createdAt)}
@@ -833,6 +866,98 @@ export function DashboardPage({
                   </Table>
                 </CardContent>
               </Card>
+              <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Premium Impact Analysis</DialogTitle>
+
+                    <DialogDescription>
+                      Detailed explanation of this prediction
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  {selectedPrediction && (
+                    <div className="space-y-6">
+                      <div className="rounded-xl bg-blue-50 border p-4">
+                        <p className="text-sm text-gray-500">
+                          Final Monthly Premium
+                        </p>
+
+                        <p className="text-3xl font-bold text-[#005BEA]">
+                          {formatCurrency(
+                            selectedPrediction.monthlyPremium * usdToInrRate
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border p-4">
+                        <div className="flex justify-between">
+                          <span className="font-semibold">
+                            Base Monthly Premium
+                          </span>
+
+                          <span className="font-bold text-[#005BEA]">
+                            {formatCurrency(
+                              (selectedPrediction?.mlResponse?.interpretability
+                                ?.baseValue /
+                                12) *
+                                usdToInrRate
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {selectedPrediction?.mlResponse?.interpretability?.localFeatureContributions
+                        ?.filter(
+                          (item) => Math.abs(item.contribution || 0) >= 1
+                        )
+                        .map((item, index) => (
+                          <div
+                            key={index}
+                            className="flex justify-between border-b pb-2"
+                          >
+                            <span className="capitalize">
+                              {item.feature.replaceAll("_", " ")}
+                            </span>
+
+                            <span
+                              className={
+                                item.contribution > 0
+                                  ? "text-red-600 font-semibold"
+                                  : "text-green-600 font-semibold"
+                              }
+                            >
+                              {item.contribution > 0 ? "+" : ""}
+                              {formatCurrency(
+                                (item.contribution / 12) * usdToInrRate
+                              )}
+                            </span>
+                          </div>
+                        ))}
+
+                      <div className="flex justify-between pt-4 border-t">
+                        <span className="font-bold">Final Monthly Premium</span>
+
+                        <span className="font-bold text-[#005BEA] text-xl">
+                          {formatCurrency(
+                            selectedPrediction.monthlyPremium * usdToInrRate
+                          )}
+                        </span>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 border p-3">
+                        <p className="text-xs text-gray-600">
+                          For clarity, only meaningful feature impacts are
+                          shown. Contributions with an absolute impact below 1
+                          premium unit are omitted. As a result, small
+                          differences may exist between the displayed breakdown
+                          and the final premium due to hidden minor
+                          contributions and rounding effects.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
             </>
           )}
 
@@ -1591,6 +1716,20 @@ export function DashboardPage({
                                   )}
                                 </span>
                               </div>
+                            </div>
+                            <div className="rounded-lg bg-slate-50 border p-3">
+                              <p className="text-xs text-gray-600">
+                                For clarity, only meaningful feature impacts are
+                                shown. Very small model contributions (less than
+                                1 premium unit) are hidden to improve
+                                readability. As a result, the displayed factors
+                                may not add up exactly to the final premium. For
+                                example, if several hidden factors contribute
+                                amounts such as +0.3, -0.5, or +0.8, the
+                                displayed breakdown may differ slightly from the
+                                final premium due to these omitted values and
+                                rounding effects.
+                              </p>
                             </div>
                           </div>
                         </div>

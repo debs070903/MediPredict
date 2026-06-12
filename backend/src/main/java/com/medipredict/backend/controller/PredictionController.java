@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @RestController
 @RequestMapping("/api/predictions")
@@ -44,5 +45,19 @@ public class PredictionController {
     ) {
         User user = userService.getAuthenticatedUser(authorization);
         return ResponseEntity.ok(predictionService.getHistory(user));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PredictionResponse> getPredictionById(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false)
+            String authorization
+    ) {
+
+        User user = userService.getAuthenticatedUser(authorization);
+
+        return ResponseEntity.ok(
+                predictionService.getPredictionById(user, id)
+        );
     }
 }

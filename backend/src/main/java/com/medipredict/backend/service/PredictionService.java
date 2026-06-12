@@ -143,6 +143,27 @@ public class PredictionService {
         return toResponse(record);
     }
 
+    public PredictionResponse getPredictionById(
+            User user,
+            Long id
+    ) {
+
+        PredictionRecord record =
+                predictionRepository.findById(id)
+                        .orElseThrow(() ->
+                                new NotFoundException(
+                                        "Prediction not found"
+                                ));
+
+        if (!record.getUser().getId().equals(user.getId())) {
+            throw new NotFoundException(
+                    "Prediction not found"
+            );
+        }
+
+        return toResponse(record);
+    }
+
     private PredictionHistoryItem toHistoryItem(PredictionRecord record) {
         PredictionHistoryItem item = new PredictionHistoryItem();
         item.setId(record.getId());
