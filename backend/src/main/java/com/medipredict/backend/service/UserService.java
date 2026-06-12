@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import com.medipredict.backend.config.MediPredictProperties;
+import com.medipredict.backend.domain.PasswordResetToken;
 import com.medipredict.backend.domain.User;
 import com.medipredict.backend.dto.auth.AuthResponse;
 import com.medipredict.backend.dto.auth.LoginRequest;
@@ -13,6 +14,7 @@ import com.medipredict.backend.dto.user.UserResponse;
 import com.medipredict.backend.exception.ConflictException;
 import com.medipredict.backend.exception.NotFoundException;
 import com.medipredict.backend.exception.UnauthorizedException;
+import com.medipredict.backend.repository.PasswordResetTokenRepository;
 import com.medipredict.backend.repository.UserRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,10 +26,15 @@ public class UserService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final MediPredictProperties properties;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
 
-    public UserService(UserRepository userRepository, MediPredictProperties properties) {
+    public UserService(UserRepository userRepository, MediPredictProperties properties,PasswordResetTokenRepository passwordResetTokenRepository,
+            EmailService emailService) {
         this.userRepository = userRepository;
         this.properties = properties;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -105,5 +112,78 @@ public class UserService {
         }
 
         throw new UnauthorizedException("Authorization header must use Bearer token format");
+    }
+    
+    @Transactional
+    public void forgotPassword(String email) {
+
+        userRepository.findByEmailIgnoreCase(
+                email.trim().toLowerCase())
+                .ifPresent(user -> {
+
+                    passwordResetTokenRepository.deleteByUser(user);
+
+                    String token = UUID.randomUUID().toString();
+
+                    PasswordResetToken resetToken =
+                            new PasswordResetToken();
+
+                    resetToken.setToken(token);
+                    resetToken.setUser(user);
+                    resetToken.setExpiryAt(
+                            Instant.now().plusSeconds(900));
+
+                    passwordResetTokenRepository.save(resetToken);
+
+                    String resetLink =
+                            "http://localhost:8080/api/auth/reset-password?token="
+                                    + token;
+
+                    emailService.sendPasswordResetEmail(
+                            user.getEmail(),
+                            resetLink);
+                });
+    }
+    public boolean validateResetToken(String token) {
+
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository
+                        .findByToken(token)
+                        .orElseThrow(() ->
+                                new UnauthorizedException("Invalid token"));
+
+        return resetToken.getExpiryAt()
+                .isAfter(Instant.now());
+    }
+    @Transactional
+    public void resetPassword(
+            String token,
+            String newPassword) {
+
+        PasswordResetToken resetToken =
+                passwordResetTokenRepository
+                        .findByToken(token)
+                        .orElseThrow(() ->
+                                new UnauthorizedException("Invalid token"));
+
+        if (resetToken.getExpiryAt()
+                .isBefore(Instant.now())) {
+
+            throw new UnauthorizedException(
+                    "Reset token expired");
+        }
+
+        User user = resetToken.getUser();
+
+        user.setPasswordHash(
+                passwordEncoder.encode(newPassword)
+        );
+
+        user.setSessionToken(null);
+        user.setSessionExpiresAt(null);
+
+        userRepository.save(user);
+
+        passwordResetTokenRepository.delete(resetToken);
     }
 }
