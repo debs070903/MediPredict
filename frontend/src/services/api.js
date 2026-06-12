@@ -35,6 +35,22 @@ export const api = {
     request("/auth/register", { method: "POST", body: JSON.stringify(body) }),
   login: (body) =>
     request("/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  forgotPassword: (body) =>
+    request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  validateResetToken: (token) =>
+    request(`/auth/reset-password?token=${encodeURIComponent(token)}`, {
+      method: "GET",
+    }),
+
+  resetPassword: (body) =>
+    request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   me: (token) => request("/auth/me", { method: "GET" }, token),
   updateProfile: (token, body) =>
     request("/users/me", { method: "PUT", body: JSON.stringify(body) }, token),

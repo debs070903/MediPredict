@@ -136,7 +136,7 @@ public class UserService {
                     passwordResetTokenRepository.save(resetToken);
 
                     String resetLink =
-                            "http://localhost:8080/api/auth/reset-password?token="
+                            "http://localhost:3000/?page=reset-password&token="
                                     + token;
 
                     emailService.sendPasswordResetEmail(

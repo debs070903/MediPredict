@@ -249,7 +249,13 @@ export function DashboardPage({
         const data = await response.json();
 
         if (data?.rates?.INR) {
-          setUsdToInrRate(data.rates.INR);
+          const usdToInr = data.rates.INR;
+        
+          const healthcareCostAdjustmentFactor = 0.5;
+        
+          setUsdToInrRate(
+            usdToInr * healthcareCostAdjustmentFactor
+          );
         }
       } catch (error) {
         console.error("Exchange rate fetch failed:", error);

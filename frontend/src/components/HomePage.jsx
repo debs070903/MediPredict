@@ -13,14 +13,6 @@ import {
 
 import { Button } from "./ui/button";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
-
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 export function HomePage({ onNavigate, isLoggedIn }) {
@@ -54,53 +46,11 @@ export function HomePage({ onNavigate, isLoggedIn }) {
     },
   ];
 
-  const howItWorks = [
-    {
-      number: "1",
-      icon: Upload,
-      title: "Upload Details",
-      description:
-        "Upload your demographic, medical and lifestyle details to our platform.",
-    },
-
-    {
-      number: "2",
-      icon: Brain,
-      title: "AI Analysis",
-      description:
-        "Our advanced AI analyzes your data using machine learning models trained on millions of records.",
-    },
-
-    {
-      number: "3",
-      icon: FileText,
-      title: "Get Predictions",
-      description:
-        "Receive detailed insurance premium cost estimates tailored to your health profile.",
-    },
-  ];
-
-  const benefits = [
-    {
-      icon: CheckCircle2,
-      title: "Better Financial Planning",
-      description:
-        "Anticipate insurance premium costs in advance and plan your finances with greater confidence.",
-    },
-
-    {
-      icon: Shield,
-      title: "Informed Insurance Decisions",
-      description:
-        "Choose suitable insurance plans and coverage levels using data-driven premium predictions.",
-    },
-  ];
-
   return (
     <div className="min-h-screen">
       {/* HERO SECTION */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#005BEA]/5 via-white to-[#00C6FB]/5">
-        <div className="container mx-auto px-4 py-20 md:py-32">
+        <div className="container mx-auto px-4 py-10 md:py-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* LEFT CONTENT */}
             <div className="space-y-8">
@@ -158,23 +108,29 @@ export function HomePage({ onNavigate, isLoggedIn }) {
               </div>
 
               {/* STATS */}
-              <div className="flex items-center gap-8 pt-4">
-                <div>
-                  <div className="text-2xl font-bold text-[#005BEA]">10K+</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#005BEA]">100K+</div>
 
-                  <div className="text-sm text-gray-600">Predictions Made</div>
+                  <div className="text-sm text-gray-600">Training Samples</div>
                 </div>
 
-                <div>
-                  <div className="text-2xl font-bold text-[#005BEA]">95%</div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#005BEA]">6</div>
 
-                  <div className="text-sm text-gray-600">Accuracy Rate</div>
+                  <div className="text-sm text-gray-600">Datasets Used</div>
                 </div>
 
-                <div>
-                  <div className="text-2xl font-bold text-[#005BEA]">5K+</div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#005BEA]">37+</div>
 
-                  <div className="text-sm text-gray-600">Happy Users</div>
+                  <div className="text-sm text-gray-600">Features Used</div>
+                </div>
+
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-[#005BEA]">100%</div>
+
+                  <div className="text-sm text-gray-600">Explainable AI</div>
                 </div>
               </div>
             </div>
