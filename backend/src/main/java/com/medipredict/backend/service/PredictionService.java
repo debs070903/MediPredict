@@ -23,6 +23,8 @@ import com.medipredict.backend.dto.prediction.PredictionResponse;
 import com.medipredict.backend.dto.ml.MlPredictionResult;
 import com.medipredict.backend.exception.NotFoundException;
 import com.medipredict.backend.repository.PredictionRepository;
+import com.medipredict.backend.service.MlServiceClient;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
