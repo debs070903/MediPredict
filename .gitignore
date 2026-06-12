@@ -1,7 +1,9 @@
 # IDE
-.settings/
-.project
+backend/.settings/
+backend/.project
 .vscode/
+backend/.classpath
+backend/.idea/
 
 # Backend (Spring Boot)
 backend/bin/
