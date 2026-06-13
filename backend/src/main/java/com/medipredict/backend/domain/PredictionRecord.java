@@ -45,10 +45,10 @@ public class PredictionRecord {
     @Column(length = 80)
     private String mlModelVersion;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String requestFeaturesJson;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String responseJson;
 
     private Instant createdAt;
