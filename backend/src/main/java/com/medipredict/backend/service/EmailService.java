@@ -16,7 +16,6 @@ public class EmailService {
     public void sendPasswordResetEmail(String email, String resetLink) {
 
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("soumyadipsadhukhan8@gmail.com");
         message.setTo(email);
         message.setSubject("MediPredict Password Reset");
 
