@@ -25,7 +25,7 @@ spring:
       write-dates-as-timestamps: false
   mail:
     host: smtp.gmail.com
-    port: 587
+    port: 465
     username: teammedipredict@gmail.com
     password: ${MAIL_APP_PASSWORD}
 
@@ -33,7 +33,7 @@ spring:
      mail:
        smtp:
          auth: true
-         starttls:
+         ssl:
            enable: true
 management:
   endpoints:

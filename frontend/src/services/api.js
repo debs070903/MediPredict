@@ -1,5 +1,6 @@
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://medipredict-ue2e.onrender.com/api";
 
 async function request(path, options = {}, token) {
   const headers = {
@@ -56,6 +57,8 @@ export const api = {
     request("/users/me", { method: "PUT", body: JSON.stringify(body) }, token),
   getDashboardSummary: (token) =>
     request("/dashboard/summary", { method: "GET" }, token),
+  getPredictionById: (token, id) =>
+    request(`/predictions/${id}`, { method: "GET" }, token),
   getPredictions: (token) => request("/predictions", { method: "GET" }, token),
   createPrediction: (token, body) =>
     request(

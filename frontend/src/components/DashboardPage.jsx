@@ -345,19 +345,9 @@ export function DashboardPage({
 
   const handlePredictionClick = async (id) => {
     try {
-      const response = await fetch(
-        `http://localhost:8080/api/predictions/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
+      const data = await api.getPredictionById(session.token, id);
+  
       setSelectedPrediction(data);
-
       setDetailsOpen(true);
     } catch (err) {
       console.error(err);
