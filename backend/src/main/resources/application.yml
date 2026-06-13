@@ -43,7 +43,7 @@ management:
 
 medipredict:
   frontend-url: http://localhost:3000
-  ml-service-base-url: http://localhost:8000
+  ml-service-base-url: https://ml-microservice-gpyq.onrender.com
   application-name: MediPredict Backend
   currency: INR
   session-ttl-hours: 24
